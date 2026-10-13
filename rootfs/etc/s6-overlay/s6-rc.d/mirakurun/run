@@ -1,0 +1,8 @@
+#!/command/with-contenv bash
+cd /opt/mirakurun/node_modules/mirakurun || exit 1
+unset LD_PRELOAD
+export DOCKER=YES NODE_ENV=production MALLOC_ARENA_MAX=2 \
+  SERVER_CONFIG_PATH=/config/mirakurun/server.yml TUNERS_CONFIG_PATH=/config/mirakurun/tuners.yml \
+  CHANNELS_CONFIG_PATH=/config/mirakurun/channels.yml SERVICES_DB_PATH=/config/mirakurun/data/services.json \
+  PROGRAMS_DB_PATH=/config/mirakurun/data/programs.json LOGO_DATA_DIR_PATH=/config/mirakurun/data/logo-data
+exec node --max-semi-space-size=64 -r source-map-support/register lib/server.js

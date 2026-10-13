@@ -1,0 +1,44 @@
+#!/bin/bash
+# tvstack first-start and every-start preparation (s6 oneshot, runs before all services).
+# Creates the directory layout in /config and /media and writes default configs that don't exist yet.
+set -euo pipefail
+D=/opt/tvstack/defaults
+MK=/opt/mirakurun/node_modules/mirakurun
+
+mkdir -p /config/mirakurun/data /config/epgstation/{config,data,thumbnail,logs,drop} /config/tvstack /config/jellyfin /cache \
+         /media/recorded /media/encoded "${TVSTACK_LIBRARY:-/media/library}/${TVSTACK_TV_DIR:-TV}" \
+         "${TVSTACK_LIBRARY:-/media/library}/${TVSTACK_MOVIE_DIR:-Movies}"
+
+# --- Mirakurun ---
+[ -f /config/mirakurun/server.yml ] || cp "$MK/config/server.yml" /config/mirakurun/server.yml
+if [ -n "${TVSTACK_REMOTE_MIRAKURUN:-}" ]; then
+  # Another Mirakurun as tuner source (development, or a tuner box elsewhere). Channels are copied from it once.
+  host=${TVSTACK_REMOTE_MIRAKURUN%:*} port=${TVSTACK_REMOTE_MIRAKURUN##*:}
+  [ "$port" = "$TVSTACK_REMOTE_MIRAKURUN" ] && port=40772
+  if [ ! -f /config/mirakurun/tuners.yml ]; then
+    for i in $(seq 1 "${TVSTACK_REMOTE_TUNERS:-2}"); do
+      printf -- '- name: remote-%s\n  types: [GR, BS, CS, SKY]\n  remoteMirakurunHost: %s\n  remoteMirakurunPort: %s\n  remoteMirakurunDecoder: false\n' "$i" "$host" "$port"
+    done > /config/mirakurun/tuners.yml
+    echo "tvstack: tuners.yml -> ${TVSTACK_REMOTE_TUNERS:-2} remote tuners on $host:$port"
+  fi
+  if [ ! -f /config/mirakurun/channels.yml ]; then
+    if curl -fsS --max-time 30 "http://$host:$port/api/config/channels" \
+       | node -e 'const y=require(require.resolve("js-yaml",{paths:[process.argv[1]]}));let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(y.dump(JSON.parse(s))))' "$MK" \
+       > /config/mirakurun/channels.yml.tmp && [ -s /config/mirakurun/channels.yml.tmp ]; then
+      mv /config/mirakurun/channels.yml.tmp /config/mirakurun/channels.yml
+    else
+      rm -f /config/mirakurun/channels.yml.tmp
+      echo "tvstack: ERROR: could not copy channels from $host:$port" >&2
+      exit 1
+    fi
+    echo "tvstack: channels.yml copied from $host:$port"
+  fi
+fi
+[ -f /config/mirakurun/tuners.yml ] || cp "$D/mirakurun/tuners.yml" /config/mirakurun/tuners.yml
+[ -f /config/mirakurun/channels.yml ] || cp "$MK/config/channels.yml" /config/mirakurun/channels.yml
+
+# --- EPGStation ---
+for f in config.yml enc.js operatorLogConfig.yml epgUpdaterLogConfig.yml serviceLogConfig.yml; do
+  [ -f "/config/epgstation/config/$f" ] || cp "$D/epgstation/$f" "/config/epgstation/config/$f"
+done
+cp "$D/epgstation/config.yml.template" /config/epgstation/config/config.yml.template # EPGStation's reference copy

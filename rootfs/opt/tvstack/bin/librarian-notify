@@ -1,0 +1,3 @@
+#!/bin/sh
+# EPGStation hook (recordingFinishCommand / encodingFinishCommand): ask the librarian for a library update now.
+exec curl -fsS --max-time 5 -X POST "http://127.0.0.1:${TVSTACK_LIBRARIAN_PORT:-40780}/sync" >/dev/null

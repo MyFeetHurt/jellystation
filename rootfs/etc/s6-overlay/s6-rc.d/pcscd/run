@@ -1,0 +1,7 @@
+#!/command/with-contenv bash
+# pcscd for the B-CAS card reader (recisdb). Off with TVSTACK_PCSCD=false or when no USB bus is passed in.
+if [[ "${TVSTACK_PCSCD:-auto}" =~ ^(0|false|no)$ ]] || { [ "${TVSTACK_PCSCD:-auto}" = auto ] && [ ! -d /dev/bus/usb ]; }; then
+  exec sleep infinity
+fi
+mkdir -p /run/pcscd
+exec pcscd --foreground

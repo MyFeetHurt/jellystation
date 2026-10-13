@@ -1,0 +1,15 @@
+#!/bin/sh
+# ffprobe for Jellyfin. Japanese broadcast TS has streams ffprobe cannot identify (codec_type null, e.g. PID 0x1e01);
+# Jellyfin 12 fails on them ("Nullable object must have a value" in ProbeResultNormalizer.GetAspectRatio), loses all
+# stream info and then copies MPEG-2 into HLS instead of transcoding. Drop those streams from the JSON; the remaining
+# streams keep their "index", so Jellyfin's -map arguments still point at the right streams.
+case " $* " in
+  *" -print_format json "*|*" -of json "*) ;;
+  *) exec /usr/lib/jellyfin-ffmpeg/ffprobe "$@" ;;
+esac
+out=$(mktemp) || exit 1
+trap 'rm -f "$out"' EXIT
+/usr/lib/jellyfin-ffmpeg/ffprobe "$@" >"$out"
+rc=$?
+jq 'if .streams then .streams |= map(select(.codec_type != null)) else . end' "$out" 2>/dev/null || cat "$out"
+exit $rc

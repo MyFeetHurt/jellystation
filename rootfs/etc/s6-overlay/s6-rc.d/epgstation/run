@@ -1,0 +1,6 @@
+#!/command/with-contenv bash
+cd /opt/epgstation || exit 1
+unset LD_PRELOAD
+# EPGStation gives up when Mirakurun is not answering yet: wait for its socket.
+for _ in $(seq 1 60); do curl -fsS --max-time 2 --unix-socket /var/run/mirakurun.sock http://localhost/api/tuners >/dev/null 2>&1 && break; sleep 1; done
+exec node dist/index.js

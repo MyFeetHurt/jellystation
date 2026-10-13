@@ -1,0 +1,8 @@
+#!/bin/sh
+# Not npm. Mirakurun runs "npm view mirakurun version" for every /api/version request (update check); the image has
+# no npm, so answer with the installed version (updates come with a new image).
+if [ "$*" = "view mirakurun version" ]; then
+  exec node -p 'require("/opt/mirakurun/node_modules/mirakurun/package.json").version'
+fi
+echo "npm is not installed in this image" >&2
+exit 1

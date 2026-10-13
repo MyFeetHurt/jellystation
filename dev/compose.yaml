@@ -1,0 +1,24 @@
+# Development stack on tvstack-dev: tuners come from the production Mirakurun (read-only use, 2 slots).
+services:
+  tvstack:
+    build: ..
+    image: tvstack:dev
+    container_name: tvstack
+    restart: unless-stopped
+    cap_add:
+      - SYS_NICE # Mirakurun raises its own priority
+    environment:
+      TVSTACK_REMOTE_MIRAKURUN: 192.168.0.118:40772
+      TVSTACK_REMOTE_TUNERS: "2"
+      TVSTACK_JELLYFIN_PASSWORD: tvstack-dev
+      TVSTACK_SYNC_INTERVAL: "120"
+      # no logo collection: it would tune the remote tuners
+      LOGO_DATA_INTERVAL: "999999999"
+    ports:
+      - "8096:8096"
+      - "8888:8888"
+      - "40772:40772"
+    volumes:
+      - ./data/config:/config
+      - ./data/cache:/cache
+      - ./data/media:/media
