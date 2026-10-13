@@ -3,6 +3,10 @@
 Japanese TV in Jellyfin from one container: **Mirakurun** (tuners), **EPGStation** (recording) and **Jellyfin**
 (library and Live TV), supervised by s6-overlay.
 
+![JellyStation demo: the TV library with posters, a series and an episode playing with Japanese captions, films, the Live TV guide with channel numbers and logos, and a live BS channel](media/demo.gif)
+
+Full video (1:21): [jellystation-demo.mp4](https://cdn.jsdelivr.net/gh/MyFeetHurt/jellystation@main/media/jellystation-demo.mp4) · Screenshots: [TV library](media/screenshot-tv.png) · [series](media/screenshot-series.png) · [Live TV guide](media/screenshot-guide.png) · [live TV](media/screenshot-live.png) · [EPGStation](media/screenshot-epgstation.png)
+
 - Finished EPGStation recordings show up in Jellyfin's **TV** and **Movies** libraries, with titles, episode numbers,
   plots, cast, genres and thumbnails taken from the EPG (NFO files). They are hardlinks, so they don't use extra disk.
 - When EPGStation finishes an encode, the encoded file replaces the TS in the library. When you delete a recording in
