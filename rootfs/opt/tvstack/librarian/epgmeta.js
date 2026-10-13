@@ -742,13 +742,14 @@ function placeVideo(input, dst, cfg) {
 /**
  * Caption sidecars: suffix, ffmpeg decoder/encoder arguments, clean-up. Both come from libaribcaption's ASS output
  * (-fix_sub_duration: ARIB captions have no duration, the next caption ends the previous one). ASS keeps position and
- * colour; SRT is built from it (rows of one caption become lines, top to bottom), because libaribb24's SRT runs the
- * rows of a caption together.
+ * colour (and furigana); SRT is built from it without furigana (rows of one caption become lines, top to bottom),
+ * because libaribb24's SRT runs the rows of a caption together.
  */
 const ASS_DECODE = ['-fix_sub_duration', '-c:s', 'libaribcaption', '-sub_type', 'ass'];
 const SUBTITLE = {
   ass: { suffix: '.ja.ass', decode: ASS_DECODE, encode: ['-c:s', 'ass', '-f', 'ass'], clean: cleanAss },
-  srt: { suffix: '.ja.srt', decode: ASS_DECODE, encode: ['-c:s', 'ass', '-f', 'ass'], clean: text => assToSrt(cleanAss(text)) },
+  // furigana (ruby) would become lines of their own in plain text: left out
+  srt: { suffix: '.ja.srt', decode: [...ASS_DECODE, '-ignore_ruby', '1'], encode: ['-c:s', 'ass', '-f', 'ass'], clean: text => assToSrt(cleanAss(text)) },
 };
 
 /** Drop empty "Dialogue:" events (ARIB clear-screen commands). */
