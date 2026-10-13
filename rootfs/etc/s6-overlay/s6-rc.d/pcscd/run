@@ -4,4 +4,5 @@ if [[ "${JELLYSTATION_PCSCD:-auto}" =~ ^(0|false|no)$ ]] || { [ "${JELLYSTATION_
   exec sleep infinity
 fi
 mkdir -p /run/pcscd
-exec pcscd --foreground
+# polkit (Debian default) is not running in the container and would refuse every client.
+exec pcscd --foreground --disable-polkit

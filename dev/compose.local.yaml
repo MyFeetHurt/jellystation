@@ -1,0 +1,26 @@
+# Development stack with local tuners (first-start detection test): one PX-Q3U4 core (px4video0-3) passed to the VM.
+# Runs next to compose.yaml on other ports with its own data. Start with: docker compose -f compose.local.yaml up -d
+services:
+  jellystation-local:
+    build: ..
+    image: jellystation:dev
+    container_name: jellystation-local
+    cap_add:
+      - SYS_NICE
+    environment:
+      JELLYSTATION_JELLYFIN_PASSWORD: jellystation-dev
+      JELLYSTATION_SYNC_INTERVAL: 120
+    devices:
+      - /dev/px4video0:/dev/px4video0
+      - /dev/px4video1:/dev/px4video1
+      - /dev/px4video2:/dev/px4video2
+      - /dev/px4video3:/dev/px4video3
+      - /dev/bus/usb:/dev/bus/usb
+    ports:
+      - "18096:8096"
+      - "18888:8888"
+      - "40773:40772"
+    volumes:
+      - ./data-local/config:/config
+      - ./data-local/cache:/cache
+      - ./data-local/media:/media
