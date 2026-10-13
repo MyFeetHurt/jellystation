@@ -1,1 +1,15 @@
-/usr/lib/jellyfin-ffmpeg/ffmpeg
+#!/bin/sh
+# ffmpeg for Jellyfin: jellyfin-ffmpeg, except that live TV inputs (http) get a small probe size. Jellyfin passes
+# -probesize 1G, and ffmpeg keeps reading until it has identified every stream, which the ARIB data streams in
+# Japanese broadcasts never are: live playback waited minutes before the first segment. See also ffprobe.
+case " $* " in
+  *" -i http"*)
+    n=$#; next=
+    for a in "$@"; do
+      if [ -n "$next" ]; then a=${JELLYSTATION_LIVE_PROBESIZE:-10M}; next=; fi
+      [ "$a" = -probesize ] && next=1
+      set -- "$@" "$a"
+    done
+    shift "$n" ;;
+esac
+exec /usr/lib/jellyfin-ffmpeg/ffmpeg "$@"

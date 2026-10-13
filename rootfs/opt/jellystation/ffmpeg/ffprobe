@@ -3,6 +3,18 @@
 # Jellyfin 12 fails on them ("Nullable object must have a value" in ProbeResultNormalizer.GetAspectRatio), loses all
 # stream info and then copies MPEG-2 into HLS instead of transcoding. Drop those streams from the JSON; the remaining
 # streams keep their "index", so Jellyfin's -map arguments still point at the right streams.
+# Live TV: Jellyfin probes the live stream with -probesize 1G, and ffprobe keeps reading until it has identified every
+# stream, which the ARIB data streams never are: playback waited minutes. Live inputs (http) get a small probe size.
+case " $* " in
+  *" -i http"*)
+    n=$#; next=
+    for a in "$@"; do
+      if [ -n "$next" ]; then a=${JELLYSTATION_LIVE_PROBESIZE:-10M}; next=; fi
+      [ "$a" = -probesize ] && next=1
+      set -- "$@" "$a"
+    done
+    shift "$n" ;;
+esac
 case " $* " in
   *" -print_format json "*|*" -of json "*) ;;
   *) exec /usr/lib/jellyfin-ffmpeg/ffprobe "$@" ;;

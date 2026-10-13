@@ -5,7 +5,7 @@
  * terrestrial last. The streams still come straight from Mirakurun.
  *
  * Subchannels that only simulcast another channel (MBS2 and MBS3 showing MBS's programmes) are left out: a channel
- * whose every programme is also on an earlier channel at the same time. A subchannel with a programme of its own
+ * whose every programme is also on an earlier channel at the same time, or untitled. A subchannel with a programme of its own
  * (split sports coverage) stays. JELLYSTATION_LIVETV_DUPLICATES=true keeps them all.
  */
 'use strict';
@@ -27,10 +27,10 @@ async function playlist() {
     if (n) numbers.set(id, n[1]);
   }
   const logos = new Set(services.filter(s => s.hasLogoData).map(s => String(s.id)));
-  const guide = new Map(); // channel id -> Set of "start title"
+  const guide = new Map(); // channel id -> Set of "start title" (subchannels often list simulcasts without a title)
   for (const [, start, id, title] of xmltv.matchAll(/<programme start="(\d+)[^"]*"[^>]*channel="(\d+)">\s*<title>([^<]*)<\/title>/g)) {
     if (!guide.has(id)) guide.set(id, new Set());
-    guide.get(id).add(start + ' ' + title);
+    if (title.trim()) guide.get(id).add(start + ' ' + title);
   }
   const keepAll = /^(1|true|yes)$/i.test(process.env.JELLYSTATION_LIVETV_DUPLICATES || '');
   const kept = [];
@@ -38,7 +38,7 @@ async function playlist() {
   const [head, ...entries] = m3u.split(/^(?=#KODIPROP)/m);
   return head + entries.filter(entry => {
     const own = guide.get((entry.match(/tvg-id="(\d+)"/) || [])[1]);
-    if (keepAll || !own || !own.size) return true;
+    if (keepAll || !own) return true; // no guide yet: keep
     if (kept.some(other => [...own].every(p => other.has(p)))) return false;
     kept.push(own);
     return true;

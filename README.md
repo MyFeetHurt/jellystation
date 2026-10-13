@@ -133,6 +133,7 @@ Config files are only written when they don't exist, so your changes are kept.
 | `JELLYSTATION_REMOTE_TUNERS` | `2` | number of remote tuner slots |
 | `JELLYSTATION_EPGSTATION_REC_PRIORITY` / `JELLYSTATION_EPGSTATION_CONFLICT_PRIORITY` | EPGStation's (2 / 1) | tuner priorities for a new `config.yml`, e.g. lower them when sharing a tuner server with another EPGStation |
 | `JELLYSTATION_CATV` | `true` | also scan cable TV frequencies (C13-C63) on the first start |
+| `JELLYSTATION_LIVE_PROBESIZE` | `10M` | how much of a live stream Jellyfin's ffmpeg/ffprobe read before starting (see Notes) |
 | `JELLYSTATION_RECISDB_ARGS` | | extra recisdb options for local tuners, e.g. `--lnb 15v` |
 | `JELLYSTATION_PCSCD` | `auto` | start pcscd when `/dev/bus/usb` is passed in; `false` to disable |
 
@@ -151,6 +152,10 @@ docker build -t jellystation .
   Jellyfin 12.2 fails while reading them (`Nullable object must have a value` in `ProbeResultNormalizer.GetAspectRatio`),
   loses all stream information and then sends MPEG-2 unconverted, which browsers can't play. The image's ffprobe
   (`/opt/jellystation/ffmpeg/ffprobe`) leaves those streams out of the result. Jellyfin 10.11 doesn't need this.
+- **Live TV start-up.** Jellyfin opens live streams with `-probesize 1G`, and ffprobe/ffmpeg keep reading until they
+  have identified every stream, which the ARIB data streams never are: live playback waited minutes. The image's
+  ffprobe and ffmpeg wrappers use 10 MB for live (http) inputs (`JELLYSTATION_LIVE_PROBESIZE`); playback starts in
+  about 10 seconds.
 - File names and metadata come from the EPG. EPG text is inconsistent, so some show names will be imperfect. To fix a
   show's folder, set a directory in its EPGStation rule: the rule's directory becomes the show name.
 - **Remote tuners.** EPGStation learns programmes from Mirakurun's event stream, and EPG that one Mirakurun copies
