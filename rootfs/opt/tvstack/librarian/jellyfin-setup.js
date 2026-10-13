@@ -149,4 +149,13 @@ async function refreshLibrary() {
   await call('POST', '/Library/Refresh');
 }
 
-module.exports = { run, loadKey, refreshLibrary, CATEGORIES };
+/** Run Jellyfin's "Refresh Guide" task: re-reads the tuner playlist (channels) and the XMLTV guide. */
+async function refreshGuide() {
+  if (!apiKey || /^(0|false|no)$/i.test(env.TVSTACK_LIVETV || '')) return;
+  const task = (await call('GET', '/ScheduledTasks')).find(t => t.Key === 'RefreshGuide');
+  if (!task) return;
+  await call('POST', `/ScheduledTasks/Running/${task.Id}`);
+  log('Live TV guide refresh started');
+}
+
+module.exports = { run, loadKey, refreshLibrary, refreshGuide, CATEGORIES };

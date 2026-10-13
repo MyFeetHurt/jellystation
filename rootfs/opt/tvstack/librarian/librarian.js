@@ -246,7 +246,10 @@ async function main() {
     else res.writeHead(404).end();
   }).listen(CONFIG.listen, '127.0.0.1');
 
-  mirakurunEpg.run().catch(e => log(`Mirakurun EPG kick failed: ${e.message}`));
+  mirakurunEpg.run(async count => {
+    log(`Mirakurun ready (${count} services)`);
+    await jellyfinSetup.refreshGuide();
+  }).catch(e => log(`Mirakurun first-start step failed: ${e.message}`));
   if (!/^(0|false|no)$/i.test(env.TVSTACK_JELLYFIN_SETUP || '')) {
     await jellyfinSetup.run(CONFIG).catch(e => log(`Jellyfin setup failed: ${e.stack || e.message}`));
   } else {
