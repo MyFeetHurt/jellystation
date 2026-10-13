@@ -14,31 +14,47 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 const get = async p => (await fetch(url + p, { signal: AbortSignal.timeout(30000) })).json();
 
 const SCAN_FILE = path.join(process.env.JELLYSTATION_STATE_DIR || '/config/jellystation', 'channel-scan');
+const CHANNELS_FILE = path.join(process.env.MIRAKURUN_CONFIG_DIR || '/config/mirakurun', 'channels.yml');
+// Scans by name. CATV: terrestrial channels that cable TV passes through on cable frequencies (C13-C63). BS with
+// subchannel names (BS01_0), the format recisdb understands. Pay channels (WOWOW, SKY PerfecTV e2, ...) are part of
+// the BS and CS scans; whether they play depends on the B-CAS card's contract.
+const SCANS = {
+  GR: { type: 'GR' },
+  CATV: { type: 'GR', channelNameFormat: 'C{ch}', minCh: 13, maxCh: 63 },
+  BS: { type: 'BS', useSubCh: true },
+  CS: { type: 'CS' },
+};
 
-/** Scans the types listed in SCAN_FILE, one after the other, then removes the file. A failed scan is retried next start. */
+/**
+ * Scans what SCAN_FILE lists, writes channels.yml and restarts Mirakurun, then removes SCAN_FILE. Every scan is a dry
+ * run: Mirakurun's scan replaces all channels of its type, so a CATV scan would drop the UHF channels of a GR scan.
+ * The results are merged here instead, all enabled. A scan that fails or finds nothing runs again on the next start.
+ */
 async function scanChannels() {
-  let types;
-  try { types = fs.readFileSync(SCAN_FILE, 'utf8').split(/\s+/).filter(Boolean); } catch { return; }
+  let scans;
+  try { scans = fs.readFileSync(SCAN_FILE, 'utf8').split(/\s+/).filter(n => SCANS[n]); } catch { return; }
   for (;;) {
     try { await get('/api/version'); break; } catch { await sleep(5000); }
   }
-  let configured = 0;
-  for (const type of types) {
-    log(`channel scan ${type} started`);
-    const res = await fetch(`${url}/api/config/channels/scan?type=${type}&setDisabledOnAdd=false`,
-      { method: 'PUT', signal: AbortSignal.timeout(3 * 3600 * 1000) });
+  const channels = [];
+  for (const name of scans) {
+    log(`channel scan ${name} started`);
+    const q = new URLSearchParams({ ...SCANS[name], dryRun: true, refresh: true });
+    const res = await fetch(`${url}/api/config/channels/scan?${q}`, { method: 'PUT', signal: AbortSignal.timeout(3 * 3600 * 1000) });
     const text = await res.text();
-    const found = (text.match(/total \d+\/\d+ .*channels configured/) || ['no summary'])[0];
-    if (!res.ok || /Error during scan/.test(text)) { log(`channel scan ${type} failed: ${text.slice(-300)}`); return; }
-    log(`channel scan ${type} done: ${found}`);
-    configured += Number((found.match(/total (\d+)/) || [0, 0])[1]);
+    if (!res.ok || /Error during scan/.test(text)) { log(`channel scan ${name} failed: ${text.slice(-300)}`); return; }
+    const found = text.split('\n').filter(l => l.startsWith('-> {')).map(l => ({ ...JSON.parse(l.slice(3)), isDisabled: false }));
+    log(`channel scan ${name} done: ${found.length} channels` + (found.length ? ` (${found.map(c => c.name).slice(0, 8).join(', ')}${found.length > 8 ? ', ...' : ''})` : ''));
+    channels.push(...found);
   }
   // Nothing found (no aerial or dish connected?): try again on the next start.
-  if (!configured) { log('channel scan found no channels; it runs again on the next start'); return; }
+  if (!channels.length) { log('channel scan found no channels; it runs again on the next start'); return; }
+  const yaml = require(require.resolve('js-yaml', { paths: ['/opt/mirakurun'] }));
+  fs.writeFileSync(CHANNELS_FILE, yaml.dump(channels));
   fs.unlinkSync(SCAN_FILE);
-  // Mirakurun reads the new channel list on start only (its own restart API needs an INIT_PID it doesn't have here).
+  // Mirakurun reads the channel list on start only (its own restart API needs an INIT_PID it doesn't have here).
   execFileSync('/command/s6-svc', ['-r', '/run/service/mirakurun']);
-  log('Mirakurun restarted with the new channel list');
+  log(`${channels.length} channels written to ${CHANNELS_FILE}, Mirakurun restarted`);
   await sleep(10000);
 }
 

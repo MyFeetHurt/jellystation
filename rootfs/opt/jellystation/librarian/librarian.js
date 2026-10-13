@@ -14,10 +14,11 @@
  * Settings (environment): see CONFIG below. No npm dependencies (Node.js 22).
  */
 'use strict';
-const fs = require('fs'), path = require('path'), http = require('http');
+const fs = require('fs'), path = require('path'), http = require('http'), { execFileSync } = require('child_process');
 const meta = require('./epgmeta');
 const jellyfinSetup = require('./jellyfin-setup');
 const mirakurunEpg = require('./mirakurun-epg');
+const livetv = require('./livetv');
 
 const env = process.env;
 const CONFIG = {
@@ -115,6 +116,22 @@ function removeEntry(entry) {
   }
 }
 
+/**
+ * Series images for a show folder that has none yet, from an episode thumbnail: poster.jpg (centre crop to 2:3),
+ * landscape.jpg (Jellyfin's thumb) and fanart.jpg (backdrop). Images already there (the user's) are left alone.
+ */
+function showArt(folder, thumb) {
+  if (!fs.existsSync(thumb)) return;
+  for (const [name, crop] of [['poster.jpg', 'crop=ih*2/3:ih'], ['landscape.jpg'], ['fanart.jpg']]) {
+    const file = path.join(folder, name);
+    if (fs.existsSync(file)) continue;
+    try {
+      if (crop) execFileSync(CONFIG.subtitleFfmpeg, ['-v', 'error', '-y', '-i', thumb, '-vf', crop, '-q:v', '2', file]);
+      else fs.copyFileSync(thumb, file);
+    } catch (e) { log(`${file}: ${e.message}`); }
+  }
+}
+
 // --- placing one recording --------------------------------------------------------------------------------------------
 
 const caches = { channels: null, rules: new Map() };
@@ -176,6 +193,7 @@ async function place(rec, video) {
     const files = [dst, base + '.nfo', ...meta.THUMB_SUFFIXES[parsed.kind].map(s => base + s),
       ...Object.values(meta.SUBTITLE).map(f => base + f.suffix)];
     log(`recorded ${rec.id}: ${how} ${video.full} -> ${dst}${subtitles.length ? `; captions ${subtitles.join(', ')}` : ''}`);
+    if (parsed.kind === 'tv' && thumbnail) showArt(target.folderPath, base + '-thumb.jpg');
     return { source: video.full, videoFileId: video.id, dst, files, kind: parsed.kind, thumb: !!thumbnail, subs: SUBS_KEY };
   } finally {
     if (thumbnail) fs.rmSync(thumbnail, { force: true });
@@ -252,7 +270,10 @@ async function main() {
 
   http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/sync') { sync('notify'); res.writeHead(202).end('queued\n'); }
-    else res.writeHead(404).end();
+    else if (req.method === 'GET' && req.url === '/livetv.m3u') {
+      livetv.playlist().then(m3u => res.writeHead(200, { 'Content-Type': 'audio/x-mpegurl; charset=utf-8' }).end(m3u),
+        e => { log(`Live TV playlist: ${e.message}`); res.writeHead(502).end(); });
+    } else res.writeHead(404).end();
   }).listen(CONFIG.listen, '127.0.0.1');
 
   mirakurunEpg.run(async count => {

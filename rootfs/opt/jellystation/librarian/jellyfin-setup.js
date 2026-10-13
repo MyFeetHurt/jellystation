@@ -111,14 +111,21 @@ async function ensureLibraries(cfg) {
 async function ensureLiveTv() {
   if (/^(0|false|no)$/i.test(env.JELLYSTATION_LIVETV || '')) return;
   const mirakurun = (env.JELLYSTATION_MIRAKURUN_URL || 'http://127.0.0.1:40772').replace(/\/$/, '');
+  // The librarian's copy of Mirakurun's playlist, with channel numbers and logos (livetv.js).
+  const playlist = `http://127.0.0.1:${env.JELLYSTATION_LIBRARIAN_PORT || 40780}/livetv.m3u`;
   const conf = await call('GET', '/System/Configuration/livetv');
-  if (!(conf.TunerHosts || []).some(t => (t.Url || '').startsWith(mirakurun))) {
+  const hosts = conf.TunerHosts || [];
+  const old = hosts.find(t => t.Url === `${mirakurun}/api/iptv/playlist`); // set up by an earlier version
+  if (old) {
+    await call('POST', '/LiveTv/TunerHosts', { ...old, Url: playlist });
+    log('Live TV tuner: now with channel numbers');
+  } else if (!hosts.some(t => t.Url === playlist || (t.Url || '').startsWith(mirakurun))) {
     let tuners = 0;
     try { tuners = (await (await fetch(mirakurun + '/api/tuners')).json()).length; } catch { /* Mirakurun still starting */ }
-    await call('POST', '/LiveTv/TunerHosts', { Type: 'm3u', Url: `${mirakurun}/api/iptv/playlist`, FriendlyName: 'Mirakurun',
+    await call('POST', '/LiveTv/TunerHosts', { Type: 'm3u', Url: playlist, FriendlyName: 'Mirakurun',
       TunerCount: tuners, ImportFavoritesOnly: false, AllowHWTranscoding: true, EnableStreamLooping: false, AllowStreamSharing: true,
       IgnoreDts: true, ReadAtNativeFramerate: false });
-    log(`Live TV tuner: Mirakurun M3U (${tuners} tuners)`);
+    log(`Live TV tuner: Mirakurun (${tuners} tuners)`);
   }
   if (!(conf.ListingProviders || []).some(p => (p.Path || '').startsWith(mirakurun))) {
     await call('POST', '/LiveTv/ListingProviders?validateListings=false&validateLogin=false', {

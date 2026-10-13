@@ -41,8 +41,10 @@ if [ ! -f /config/mirakurun/tuners.yml ]; then
   if /opt/jellystation/bin/jellystation-tuners --write; then
     if [ ! -f /config/mirakurun/channels.yml ]; then
       echo '[]' > /config/mirakurun/channels.yml
-      { grep -q 'types: \[.*GR' /config/mirakurun/tuners.yml && echo GR
-        grep -q 'types: \[.*BS' /config/mirakurun/tuners.yml && printf 'BS\nCS\n'; } > /config/jellystation/channel-scan
+      # CATV: cable TV's terrestrial channels on cable frequencies; JELLYSTATION_CATV=false skips that scan.
+      { grep -q 'types: \[.*GR' /config/mirakurun/tuners.yml && echo GR \
+          && { [[ "${JELLYSTATION_CATV:-true}" =~ ^(0|false|no)$ ]] || echo CATV; }
+        grep -q 'types: \[.*BS' /config/mirakurun/tuners.yml && printf 'BS\nCS\n'; true; } > /config/jellystation/channel-scan
       echo "jellystation: channels will be scanned when Mirakurun is up ($(paste -sd, /config/jellystation/channel-scan))"
     fi
   else

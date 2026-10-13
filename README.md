@@ -7,8 +7,8 @@ Japanese TV in Jellyfin from one container: **Mirakurun** (tuners), **EPGStation
   plots, cast, genres and thumbnails taken from the EPG (NFO files). They are hardlinks, so they don't use extra disk.
 - When EPGStation finishes an encode, the encoded file replaces the TS in the library. When you delete a recording in
   EPGStation, it leaves the library too.
-- Jellyfin **Live TV** uses Mirakurun's channels and its EPG (XMLTV) is the programme guide. Movies, sports, news
-  and kids programmes are tagged from the ARIB genres.
+- Jellyfin **Live TV** uses Mirakurun's channels, numbered like a TV (1.1 NHK総合, 101.1 NHK BS) and with their logos,
+  and its EPG (XMLTV) is the programme guide. Movies, sports, news and kids programmes are tagged from the ARIB genres.
 - ARIB captions become subtitle files next to each recording (`.ja.srt`, optionally `.ja.ass`), so every Jellyfin
   client can show them.
 - Includes a fix for Jellyfin 12, which otherwise can't play Japanese broadcast TS (see [Notes](#notes)).
@@ -52,7 +52,8 @@ services:
 1. Install the tuner driver on the host if your tuner needs one (see [Tuners](#tuners)), plug in the card reader
    with the B-CAS card, and start the container.
 2. On the first start JellyStation writes `config/mirakurun/tuners.yml` for the tuners it finds and scans the
-   channels (GR, then BS and CS: 20 to 40 minutes). `docker logs jellystation` shows what it found.
+   channels: terrestrial, cable (CATV), BS and CS, about 30 to 60 minutes. `docker logs jellystation` shows what it
+   found.
 3. Open EPGStation at `http://<host>:8888` and add reservations or rules.
 4. Open Jellyfin at `http://<host>:8096` and log in as `admin` with `JELLYSTATION_JELLYFIN_PASSWORD`. The libraries
    and Live TV are already set up.
@@ -82,6 +83,12 @@ device it finds: px4_drv devices by their names (PX-W3/Q3: satellite, satellite,
 of four), DVB adapters by what their frontend reports. A new channel list is then scanned once Mirakurun runs; a scan
 that finds nothing (aerial not connected?) runs again on the next start.
 
+**Channels.** The scan covers terrestrial channels on UHF 13-62 and, for cable TV, on cable frequencies C13-C63
+(pass-through; skip it with `JELLYSTATION_CATV=false`), plus all BS and 110° CS channels, including pay channels
+such as WOWOW, Star Channel and SKY PerfecTV! e2. Pay channels play when the B-CAS card has a contract for them.
+Cable TV that is only delivered through the cable company's set-top box (transmodulation) and SKY PerfecTV! premium
+(124/128°) need other hardware and are not supported.
+
 **Adding or changing tuners.** Pass the new devices, then run `docker exec jellystation jellystation-tuners` to see
 what it finds and `docker exec jellystation jellystation-tuners --write` to replace `tuners.yml` (the old one is kept
 as `tuners.yml.bak`), and restart. To scan again, delete `config/mirakurun/channels.yml` and `tuners.yml` before
@@ -98,7 +105,8 @@ restarting, or use Mirakurun's scan API. The tuner command is `/opt/jellystation
 /cache/               Jellyfin cache and transcodes
 /media/recorded/      EPGStation recordings (TS)
 /media/encoded/       EPGStation encodes
-/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.m2ts + .nfo + -thumb.jpg + .ja.srt, tvshow.nfo
+/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.m2ts + .nfo + -thumb.jpg + .ja.srt,
+                      tvshow.nfo, poster.jpg / landscape.jpg / fanart.jpg (from an episode thumbnail)
 /media/library/Movies/  Movies/<Title> (<Year>)/<Title> (<Year>).m2ts + .nfo
 ```
 
@@ -121,6 +129,7 @@ Config files are only written when they don't exist, so your changes are kept.
 | `JELLYSTATION_REMOTE_MIRAKURUN` | | `host:port` of another Mirakurun that has the tuners (and the B-CAS card). On first start the container's Mirakurun gets remote tuners that let that server descramble, and copies its channel list; EPGStation is configured to use that Mirakurun directly (see Notes) |
 | `JELLYSTATION_REMOTE_TUNERS` | `2` | number of remote tuner slots |
 | `JELLYSTATION_EPGSTATION_REC_PRIORITY` / `JELLYSTATION_EPGSTATION_CONFLICT_PRIORITY` | EPGStation's (2 / 1) | tuner priorities for a new `config.yml`, e.g. lower them when sharing a tuner server with another EPGStation |
+| `JELLYSTATION_CATV` | `true` | also scan cable TV frequencies (C13-C63) on the first start |
 | `JELLYSTATION_RECISDB_ARGS` | | extra recisdb options for local tuners, e.g. `--lnb 15v` |
 | `JELLYSTATION_PCSCD` | `auto` | start pcscd when `/dev/bus/usb` is passed in; `false` to disable |
 
@@ -156,7 +165,8 @@ docker build -t jellystation .
 
 `dev/compose.yaml` runs the stack with another Mirakurun as remote tuners. `node --test tests/` runs the librarian tests.
 `tools/jf_playtest.py` checks that Jellyfin can transcode every video, and `tools/e2e_record.py` records one short
-programme and checks that it reaches the library.
+programme and checks that it reaches the library. `tools/epgs_import.py` copies finished recordings from another
+EPGStation (programme data and the TS) into a test stack. `dev/compose.local.yaml` runs a second stack with local tuners.
 
 ## Credits
 

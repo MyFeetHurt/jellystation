@@ -35,7 +35,7 @@ recorded:
       path: /media/encoded
 
 thumbnail: '%ROOT%/thumbnail'
-thumbnailSize: 480x270
+thumbnailSize: 1280x720 # large enough for the series poster the librarian cuts from it
 thumbnailPosition: 60
 
 ffmpeg: /usr/lib/jellyfin-ffmpeg/ffmpeg
