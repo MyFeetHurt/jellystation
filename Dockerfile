@@ -31,6 +31,14 @@ RUN npm install --no-save --ignore-scripts \
 WORKDIR /opt/mirakurun
 RUN npm install --omit=dev --no-save mirakurun@${MIRAKURUN_VERSION}
 
+# ffmpeg with ARIB caption decoders (libaribcaption), only for writing caption files (Jellyfin keeps jellyfin-ffmpeg)
+ARG FFMPEG_ARIB_BUILD=autobuild-2026-09-28-13-06
+ARG FFMPEG_ARIB_VERSION=n8.1.3-6-gff48edd8b2
+RUN arch=$(case "${TARGETARCH:-amd64}" in arm64) echo linuxarm64;; *) echo linux64;; esac) \
+    && mkdir -p /opt/ffmpeg-arib/bin \
+    && curl -fsSL "https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_ARIB_BUILD}/ffmpeg-${FFMPEG_ARIB_VERSION}-${arch}-gpl-8.1.tar.xz" \
+       | tar -xJ -C /opt/ffmpeg-arib --strip-components=1 --wildcards '*/bin/ffmpeg' '*/LICENSE.txt'
+
 RUN mkdir /s6 && arch=$(case "${TARGETARCH:-amd64}" in arm64) echo aarch64;; *) echo x86_64;; esac) \
     && for f in noarch $arch; do \
          curl -fsSL "https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-$f.tar.xz" \
@@ -54,6 +62,7 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /s6/ /
 COPY --from=build /opt/epgstation /opt/epgstation
 COPY --from=build /opt/mirakurun /opt/mirakurun
+COPY --from=build /opt/ffmpeg-arib /opt/ffmpeg-arib
 COPY rootfs/ /
 
 # The base image preloads jemalloc for every process; only Jellyfin gets it (see its run script).

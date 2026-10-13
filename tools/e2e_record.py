@@ -27,6 +27,7 @@ def main():
     ap.add_argument('--within', type=int, default=20, help='programme must start within N minutes')
     ap.add_argument('--max-minutes', type=int, default=10)
     ap.add_argument('--library', default='dev/data/media/library')
+    ap.add_argument('--name-contains', default='', help='only programmes whose name contains this, e.g. 字 (captions)')
     a = ap.parse_args()
     epgs = f'http://{a.host}:8888/api'
 
@@ -35,7 +36,8 @@ def main():
     q = urllib.parse.urlencode({'startAt': now, 'endAt': now + a.within * 60000 + a.max_minutes * 60000, 'isHalfWidth': 'false',
                                 'GR': 'true', 'BS': 'false', 'CS': 'false', 'SKY': 'false'})
     progs = [p for ch in get(f'{epgs}/schedules?{q}') for p in ch['programs']
-             if now + 60000 < p['startAt'] < now + a.within * 60000 and p['endAt'] - p['startAt'] <= a.max_minutes * 60000]
+             if now + 60000 < p['startAt'] < now + a.within * 60000 and p['endAt'] - p['startAt'] <= a.max_minutes * 60000
+             and a.name_contains in p['name']]
     if not progs:
         print('no suitable programme; try a larger --within'); return 1
     prog = min(progs, key=lambda p: (p['startAt'], p['endAt'] - p['startAt']))
@@ -72,7 +74,10 @@ def main():
             time.sleep(10)
     if not entry:
         print('FAIL: librarian did not place the recording'); return 1
-    print(f'library: {entry["dst"]} (thumbnail {entry["thumb"]})')
+    print(f'library: {entry["dst"]} (thumbnail {entry["thumb"]}, captions setting {entry.get("subs")})')
+    out = subprocess.run(['sudo', 'ls', os.path.dirname(os.path.join(a.library, os.path.relpath(entry['dst'], '/media/library')))],
+                         capture_output=True, text=True).stdout
+    print('files:', ', '.join(f for f in out.splitlines() if f.startswith(os.path.basename(entry['dst']).rsplit('.', 1)[0])))
     return 0
 
 

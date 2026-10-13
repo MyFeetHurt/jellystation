@@ -739,10 +739,16 @@ function placeVideo(input, dst, cfg) {
   return { how: linkOrCopy(input, dst, cfg.link), note: `; remux failed: ${error}` };
 }
 
-/** Caption sidecars: suffix, ffmpeg decoder/encoder arguments, clean-up. ASS keeps position and colour; SRT is plain text. */
+/**
+ * Caption sidecars: suffix, ffmpeg decoder/encoder arguments, clean-up. Both come from libaribcaption's ASS output
+ * (-fix_sub_duration: ARIB captions have no duration, the next caption ends the previous one). ASS keeps position and
+ * colour; SRT is built from it (rows of one caption become lines, top to bottom), because libaribb24's SRT runs the
+ * rows of a caption together.
+ */
+const ASS_DECODE = ['-fix_sub_duration', '-c:s', 'libaribcaption', '-sub_type', 'ass'];
 const SUBTITLE = {
-  ass: { suffix: '.ja.ass', decode: ['-c:s', 'libaribcaption', '-sub_type', 'ass'], encode: ['-c:s', 'ass', '-f', 'ass'], clean: cleanAss },
-  srt: { suffix: '.ja.srt', decode: ['-c:s', 'libaribb24'], encode: ['-c:s', 'srt', '-f', 'srt'], clean: cleanSrt },
+  ass: { suffix: '.ja.ass', decode: ASS_DECODE, encode: ['-c:s', 'ass', '-f', 'ass'], clean: cleanAss },
+  srt: { suffix: '.ja.srt', decode: ASS_DECODE, encode: ['-c:s', 'ass', '-f', 'ass'], clean: text => assToSrt(cleanAss(text)) },
 };
 
 /** Drop empty "Dialogue:" events (ARIB clear-screen commands). */
@@ -751,12 +757,25 @@ function cleanAss(text) {
     line.split(',').slice(9).join(',').replace(/\{[^}]*\}|\\[Nnh]/g, '').trim()).join('\n');
 }
 
-/** SRT as plain text: tags removed, empty cues dropped, cues renumbered. */
-function cleanSrt(text) {
-  const cues = text.replace(/\r\n?/g, '\n').split(/\n{2,}/).map(cue => cue.trim().split('\n'))
-    .map(([, time, ...lines]) => [time, lines.map(l => l.replace(/<[^>]*>/g, '').trim()).filter(Boolean)])
-    .filter(([time, lines]) => /-->/.test(time) && lines.length);
-  return cues.map(([time, lines], i) => `${i + 1}\n${time}\n${lines.join('\n')}\n`).join('\n');
+/** ASS events → SRT cues: events with the same start and end form one cue, ordered by their \\pos y; tags removed. */
+function assToSrt(text) {
+  const cues = new Map();
+  for (const line of text.split(/\r?\n/)) {
+    if (!/^Dialogue:/.test(line)) continue;
+    const fields = line.slice(line.indexOf(':') + 1).split(',');
+    const [start, end] = [fields[1].trim(), fields[2].trim()], raw = fields.slice(9).join(',');
+    const y = +((raw.match(/\\pos\([\d.]+,([\d.]+)\)/) || [])[1] || 0);
+    const body = raw.replace(/\{[^}]*\}/g, '').replace(/\\[Nn]/g, '\n').replace(/\\h/g, ' ').trim();
+    if (!body) continue;
+    const k = `${start}|${end}`;
+    if (!cues.has(k)) cues.set(k, []);
+    cues.get(k).push([y, body]);
+  }
+  const srtTime = t => { const [h, m, sc] = t.split(':'); const [sec, cs = '0'] = sc.split('.'); return `${h.padStart(2, '0')}:${m}:${sec},${cs.padEnd(3, '0')}`; };
+  return [...cues].map(([k, rows], i) => {
+    const [start, end] = k.split('|');
+    return `${i + 1}\n${srtTime(start)} --> ${srtTime(end)}\n${rows.sort((a, b) => a[0] - b[0]).map(r => r[1]).join('\n')}\n`;
+  }).join('\n');
 }
 
 /**
@@ -764,10 +783,10 @@ function cleanSrt(text) {
  * @returns {{ text?: string, error?: string }}
  */
 function extractSubtitle(input, format, cfg) {
-  const { decode, encode, clean } = SUBTITLE[format], out = path.join(os.tmpdir(), `epgXport-${process.pid}.${format}`);
+  const { decode, encode, clean } = SUBTITLE[format], out = path.join(os.tmpdir(), `tvstack-captions-${process.pid}.${format}`);
   try {
     const error = runFfmpeg(cfg.subtitleFfmpeg, ['-hide_banner', '-nostdin', '-loglevel', 'error', ...decode, '-i', input, '-map', '0:s:0', ...encode, '-y', out]);
-    if (error) return { error };
+    if (error) return { error: /'0:s:0' for option 'map'|matches no streams/.test(error) ? 'no caption stream' : error };
     const text = clean(fs.readFileSync(out, 'utf8'));
     return /^Dialogue:|-->/m.test(text) ? { text } : { error: 'no captions' };
   } catch (e) { return { error: e.message }; } finally { fs.rmSync(out, { force: true }); }
@@ -872,4 +891,5 @@ function placeRecording(input, folderPath, base, ext, nfo, thumbnail, imageSuffi
 
 module.exports = {
   parse, norm, safe, trunc, extended, genreFields, tvTarget, movieTarget, placeRecording, THUMB_SUFFIXES, REMUX_ARGS,
+  SUBTITLE, assToSrt,
 };

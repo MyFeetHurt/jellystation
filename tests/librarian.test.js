@@ -26,7 +26,7 @@ test.before(async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   Object.assign(process.env, {
     TVSTACK_EPGSTATION_URL: `http://127.0.0.1:${server.address().port}`, TVSTACK_LIBRARY: dirs.library,
-    TVSTACK_RECORDED_DIRS: `${dirs.recorded}:${dirs.encoded}`, TVSTACK_STATE_DIR: dirs.state,
+    TVSTACK_RECORDED_DIRS: `${dirs.recorded}:${dirs.encoded}`, TVSTACK_STATE_DIR: dirs.state, TVSTACK_SUBTITLES: 'false',
   });
   lib = require('../rootfs/opt/tvstack/librarian/librarian.js');
 });
@@ -101,4 +101,17 @@ test('skips recordings in progress and recordings without a thumbnail yet', asyn
   await lib.pass('test');
   assert.ok(!libraryFiles().some(f => /ニュース|天気予報/.test(f)));
   assert.ok(libraryFiles().length <= before);
+});
+
+test('ARIB captions: ASS rows of one caption become one SRT cue, top to bottom', () => {
+  const { assToSrt } = require('../rootfs/opt/tvstack/librarian/epgmeta.js');
+  const ass = [
+    '[Events]',
+    'Dialogue: 0,0:00:01.13,0:00:03.30,Default,,0,0,0,,{\\an7}{\\pos(170,329)}{\\fsp4}人のプライベートに踏み込んで',
+    'Dialogue: 0,0:00:01.13,0:00:03.30,Default,,0,0,0,,{\\an7}{\\pos(170,269)}{\\fsp4}いきなり',
+    'Dialogue: 0,0:00:03.30,0:00:07.81,Default,,0,0,0,,{\\pos(210,299)}{\\1c&Hffff00&}去年, 中南米から',
+    'Dialogue: 0,0:00:08.00,0:00:09.00,Default,,0,0,0,,{\\pos(1,1)}',
+  ].join('\n');
+  assert.strictEqual(assToSrt(ass),
+    '1\n00:00:01,130 --> 00:00:03,300\nいきなり\n人のプライベートに踏み込んで\n\n2\n00:00:03,300 --> 00:00:07,810\n去年, 中南米から\n');
 });

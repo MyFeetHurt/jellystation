@@ -32,7 +32,12 @@ const CONFIG = {
   interval: +(env.TVSTACK_SYNC_INTERVAL || 600) * 1000,
   listen: +(env.TVSTACK_LIBRARIAN_PORT || 40780),
   massDelete: /^(1|true|yes)$/i.test(env.TVSTACK_ALLOW_MASS_DELETE || ''),
+  // ARIB captions as sidecar files: 'srt' (any client), 'ass' (position and colour), 'both', or 'false'
+  subtitles: { srt: ['srt'], ass: ['ass'], both: ['ass', 'srt'] }[(env.TVSTACK_SUBTITLES || 'srt').toLowerCase()] || [],
+  subtitleFfmpeg: env.TVSTACK_SUBTITLE_FFMPEG || '/opt/ffmpeg-arib/bin/ffmpeg',
 };
+/** Changes when the caption setting changes, so existing library entries get (or keep) the right sidecars. */
+const SUBS_KEY = CONFIG.subtitles.join('+') || 'none';
 const STATE_FILE = path.join(CONFIG.stateDir, 'librarian.json');
 const VIDEO_EXT = /\.(m2ts|ts|mp4|mkv|webm)$/i;
 
@@ -105,7 +110,7 @@ function removeEntry(entry) {
   let left;
   try { left = fs.readdirSync(folder); } catch { return; }
   if (!left.some(f => VIDEO_EXT.test(f))) {
-    for (const f of left) if (f === 'tvshow.nfo' || /\.(nfo|jpg)$/.test(f)) fs.rmSync(path.join(folder, f), { force: true });
+    for (const f of left) if (f === 'tvshow.nfo' || /\.(nfo|jpg|ass|srt)$/.test(f)) fs.rmSync(path.join(folder, f), { force: true });
     try { fs.rmdirSync(folder); } catch { /* someone else's files: keep the folder */ }
   }
 }
@@ -153,7 +158,8 @@ async function place(rec, video) {
   const nfoItem = (extraTags, plotSuffix) => [['outline', desc.trim()], ['plot', [plot, plotSuffix].filter(Boolean).join('\n\n')],
     ['runtime', Math.round((endAt - start) / 60000) || undefined], ...showFields, ...[...new Set([...extraTags, ...flagTags])].map(t => ['tag', t]), ...people];
   const ext = path.extname(video.full) || '.ts';
-  const cfg = { library: CONFIG.library, tvDir: CONFIG.tvDir, movieDir: CONFIG.movieDir, link: 'hardlink', remux: false, subtitles: [] };
+  const cfg = { library: CONFIG.library, tvDir: CONFIG.tvDir, movieDir: CONFIG.movieDir, link: 'hardlink', remux: false,
+    subtitles: CONFIG.subtitles, subtitleFfmpeg: CONFIG.subtitleFfmpeg };
 
   const target = parsed.kind === 'movie'
     ? meta.movieTarget({ cfg, parsed, desc, extendedText, nfoItem, rawName })
@@ -164,12 +170,13 @@ async function place(rec, video) {
   }
   const thumbnail = await fetchThumbnail(rec).catch(e => { log(`recorded ${rec.id}: no thumbnail (${e.message})`); });
   try {
-    const { dst, how } = meta.placeRecording(video.full, target.folderPath, target.base, ext, target.nfo, thumbnail,
+    const { dst, how, subtitles } = meta.placeRecording(video.full, target.folderPath, target.base, ext, target.nfo, thumbnail,
       meta.THUMB_SUFFIXES[parsed.kind], cfg);
     const base = dst.slice(0, -ext.length);
-    const files = [dst, base + '.nfo', ...meta.THUMB_SUFFIXES[parsed.kind].map(s => base + s)];
-    log(`recorded ${rec.id}: ${how} ${video.full} -> ${dst}`);
-    return { source: video.full, videoFileId: video.id, dst, files, kind: parsed.kind, thumb: !!thumbnail };
+    const files = [dst, base + '.nfo', ...meta.THUMB_SUFFIXES[parsed.kind].map(s => base + s),
+      ...Object.values(meta.SUBTITLE).map(f => base + f.suffix)];
+    log(`recorded ${rec.id}: ${how} ${video.full} -> ${dst}${subtitles.length ? `; captions ${subtitles.join(', ')}` : ''}`);
+    return { source: video.full, videoFileId: video.id, dst, files, kind: parsed.kind, thumb: !!thumbnail, subs: SUBS_KEY };
   } finally {
     if (thumbnail) fs.rmSync(thumbnail, { force: true });
   }
@@ -207,9 +214,11 @@ async function pass(reason) {
     const old = state.items[id];
     // Thumbnails appear a moment after the recording ends: wait up to 3 minutes for one.
     if (!(rec.thumbnails || []).length && Date.now() - rec.endAt < 180e3) { retrySoon = true; continue; }
-    if (old && old.source === video.full && fs.existsSync(old.dst)) continue;
+    const same = old && old.source === video.full && fs.existsSync(old.dst);
+    if (same && old.subs === SUBS_KEY) continue;
     try {
-      if (old) { removeEntry(old); log(`recorded ${id}: replacing ${old.dst}`); }
+      // Same video, other caption setting: placing again keeps the files and adds the missing sidecars.
+      if (old && !same) { removeEntry(old); log(`recorded ${id}: replacing ${old.dst}`); }
       state.items[id] = await place(rec, video);
       changed++;
       saveState(state);

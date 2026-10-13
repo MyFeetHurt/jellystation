@@ -9,6 +9,8 @@ Japanese TV in Jellyfin from one container: **Mirakurun** (tuners), **EPGStation
   EPGStation, it leaves the library too.
 - Jellyfin **Live TV** uses Mirakurun's channels and its EPG (XMLTV) is the programme guide. Movies, sports, news
   and kids programmes are tagged from the ARIB genres.
+- ARIB captions become subtitle files next to each recording (`.ja.srt`, optionally `.ja.ass`), so every Jellyfin
+  client can show them.
 - Includes a fix for Jellyfin 12, which otherwise can't play Japanese broadcast TS (see [Notes](#notes)).
 
 | Port  | Service    |
@@ -64,7 +66,7 @@ services:
 /cache/               Jellyfin cache and transcodes
 /media/recorded/      EPGStation recordings (TS)
 /media/encoded/       EPGStation encodes
-/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.m2ts + .nfo + -thumb.jpg, tvshow.nfo
+/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.m2ts + .nfo + -thumb.jpg + .ja.srt, tvshow.nfo
 /media/library/Movies/  Movies/<Title> (<Year>)/<Title> (<Year>).m2ts + .nfo
 ```
 
@@ -80,6 +82,7 @@ Config files are only written when they don't exist, so your changes are kept.
 | `TVSTACK_JELLYFIN_SETUP` | `true` | `false`: don't touch Jellyfin's setup (the library refresh still needs `/config/tvstack/jellyfin.key`) |
 | `TVSTACK_LIVETV` | `true` | add Mirakurun as Jellyfin Live TV tuner and guide |
 | `TVSTACK_TV_ONLINE_METADATA` | `false` | `true`: let Jellyfin look up TV shows online (EPG titles often match the wrong show) |
+| `TVSTACK_SUBTITLES` | `srt` | ARIB captions as sidecar files: `srt` (plain text, any client), `ass` (keeps position and colour; Jellyfin's web player needs a Japanese fallback font for it), `both`, or `false` |
 | `TVSTACK_PREFER` | `encoded` | which file goes into the library: `encoded` (when there is one) or `ts` |
 | `TVSTACK_SYNC_INTERVAL` | `600` | seconds between library checks (EPGStation also triggers one when a recording or encode ends) |
 | `TVSTACK_ALLOW_MASS_DELETE` | `false` | the librarian refuses to remove more than half of the library in one pass (e.g. after an EPGStation database reset) unless this is `true` |
@@ -111,7 +114,10 @@ docker build -t tvstack .
   minutes with two remote tuners; when it is done, the EPG gatherer is started once so the guide doesn't wait for
   Mirakurun's next :20/:50 run.
 - Mirakurun, EPGStation and Jellyfin run unmodified; tvstack only adds configuration and its own helper scripts.
-- ARIB captions aren't converted (jellyfin-ffmpeg has no ARIB caption decoder).
+- **Captions.** jellyfin-ffmpeg has no ARIB caption decoder, so the image adds a static ffmpeg from
+  [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (`/opt/ffmpeg-arib`, with libaribcaption) that only
+  the librarian uses. Captions are decoded with `-fix_sub_duration` (ARIB captions have no duration). Live TV has no
+  captions. Changing `TVSTACK_SUBTITLES` adds the new files to recordings already in the library.
 
 ## Development
 

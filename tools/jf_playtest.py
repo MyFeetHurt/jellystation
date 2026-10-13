@@ -77,7 +77,8 @@ def play(jf, user_id, item):
     if info.get('ErrorCode'):
         return f'PlaybackInfo error {info["ErrorCode"]}'
     src = info['MediaSources'][0]
-    streams = ', '.join(f'{s["Type"]}:{s.get("Codec")}' for s in src.get('MediaStreams', []))
+    streams = ', '.join(f'{s["Type"]}:{s.get("Codec")}' + ('(external ' + str(s.get('Language')) + ')' if s.get('IsExternal') else '')
+                        for s in src.get('MediaStreams', []))
     url = src.get('TranscodingUrl')
     if not url:
         return f'no TranscodingUrl (direct={src.get("SupportsDirectPlay")}) [{streams}]'
