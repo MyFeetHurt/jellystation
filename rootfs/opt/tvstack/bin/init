@@ -39,7 +39,19 @@ fi
 [ -f /config/mirakurun/channels.yml ] || cp "$MK/config/channels.yml" /config/mirakurun/channels.yml
 
 # --- EPGStation ---
-for f in config.yml enc.js operatorLogConfig.yml epgUpdaterLogConfig.yml serviceLogConfig.yml; do
+if [ ! -f /config/epgstation/config/config.yml ]; then
+  cp "$D/epgstation/config.yml" /config/epgstation/config/config.yml
+  if [ -n "${TVSTACK_REMOTE_MIRAKURUN:-}" ]; then
+    # EPGStation learns programmes from Mirakurun's event stream. EPG that a Mirakurun copies from a remote one
+    # produces no events, so with remote tuners EPGStation uses the tuner server's Mirakurun directly. The container's
+    # Mirakurun still serves Jellyfin Live TV and its guide.
+    sed -i "s|^mirakurunPath: .*|mirakurunPath: http://$host:$port/|" /config/epgstation/config/config.yml
+    echo "tvstack: EPGStation uses Mirakurun at $host:$port"
+  fi
+  [ -n "${TVSTACK_EPGSTATION_REC_PRIORITY:-}" ] && sed -i "s|^recPriority: .*|recPriority: $TVSTACK_EPGSTATION_REC_PRIORITY|" /config/epgstation/config/config.yml
+  [ -n "${TVSTACK_EPGSTATION_CONFLICT_PRIORITY:-}" ] && sed -i "s|^conflictPriority: .*|conflictPriority: $TVSTACK_EPGSTATION_CONFLICT_PRIORITY|" /config/epgstation/config/config.yml
+fi
+for f in enc.js operatorLogConfig.yml epgUpdaterLogConfig.yml serviceLogConfig.yml; do
   [ -f "/config/epgstation/config/$f" ] || cp "$D/epgstation/$f" "/config/epgstation/config/$f"
 done
 cp "$D/epgstation/config.yml.template" /config/epgstation/config/config.yml.template # EPGStation's reference copy

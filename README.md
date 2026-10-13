@@ -83,8 +83,9 @@ Config files are only written when they don't exist, so your changes are kept.
 | `TVSTACK_PREFER` | `encoded` | which file goes into the library: `encoded` (when there is one) or `ts` |
 | `TVSTACK_SYNC_INTERVAL` | `600` | seconds between library checks (EPGStation also triggers one when a recording or encode ends) |
 | `TVSTACK_ALLOW_MASS_DELETE` | `false` | the librarian refuses to remove more than half of the library in one pass (e.g. after an EPGStation database reset) unless this is `true` |
-| `TVSTACK_REMOTE_MIRAKURUN` | | `host:port` of another Mirakurun to use as tuners (only when `tuners.yml` doesn't exist yet); its channel list is copied |
+| `TVSTACK_REMOTE_MIRAKURUN` | | `host:port` of another Mirakurun that has the tuners (and the B-CAS card). On first start the container's Mirakurun gets remote tuners that let that server descramble, and copies its channel list; EPGStation is configured to use that Mirakurun directly (see Notes) |
 | `TVSTACK_REMOTE_TUNERS` | `2` | number of remote tuner slots |
+| `TVSTACK_EPGSTATION_REC_PRIORITY` / `TVSTACK_EPGSTATION_CONFLICT_PRIORITY` | EPGStation's (2 / 1) | tuner priorities for a new `config.yml`, e.g. lower them when sharing a tuner server with another EPGStation |
 | `TVSTACK_PCSCD` | `auto` | start pcscd when `/dev/bus/usb` is passed in; `false` to disable |
 
 Mirakurun's own Docker variables (`LOG_LEVEL`, `EPG_GATHERING_JOB_SCHEDULE`, `LOGO_DATA_INTERVAL`, ...) work as usual.
@@ -104,6 +105,12 @@ docker build -t tvstack .
   (`/opt/tvstack/ffmpeg/ffprobe`) leaves those streams out of the result. Jellyfin 10.11 doesn't need this.
 - File names and metadata come from the EPG. EPG text is inconsistent, so some show names will be imperfect. To fix a
   show's folder, set a directory in its EPGStation rule: the rule's directory becomes the show name.
+- **Remote tuners.** EPGStation learns programmes from Mirakurun's event stream, and EPG that one Mirakurun copies
+  from another produces no events. So with `TVSTACK_REMOTE_MIRAKURUN`, EPGStation talks to the tuner server's
+  Mirakurun, and the container's Mirakurun feeds Jellyfin Live TV. On first start the channel scan takes about 15
+  minutes with two remote tuners; when it is done, the EPG gatherer is started once so the guide doesn't wait for
+  Mirakurun's next :20/:50 run.
+- Mirakurun, EPGStation and Jellyfin run unmodified; tvstack only adds configuration and its own helper scripts.
 - ARIB captions aren't converted (jellyfin-ffmpeg has no ARIB caption decoder).
 
 ## Development

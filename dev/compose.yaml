@@ -10,6 +10,9 @@ services:
     environment:
       TVSTACK_REMOTE_MIRAKURUN: 192.168.0.118:40772
       TVSTACK_REMOTE_TUNERS: "2"
+      # production EPGStation recordings win tuners over dev ones
+      TVSTACK_EPGSTATION_REC_PRIORITY: "1"
+      TVSTACK_EPGSTATION_CONFLICT_PRIORITY: "0"
       TVSTACK_JELLYFIN_PASSWORD: tvstack-dev
       TVSTACK_SYNC_INTERVAL: "120"
       # no logo collection: it would tune the remote tuners
