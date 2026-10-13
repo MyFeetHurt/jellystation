@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end check of a running tvstack container: record one short programme with the container's EPGStation, then
+"""End-to-end check of a running jellystation container: record one short programme with the container's EPGStation, then
 check that the librarian put it in the library and that Jellyfin finds it and can transcode it.
 
 Picks the shortest GR programme that starts within --within minutes and lasts at most --max-minutes, reserves it,
@@ -61,7 +61,7 @@ def main():
     drop = rec.get('dropLogFile') or {}
     print(f'recorded id {rec["id"]}: {size / 1e6:.0f} MB, drop {drop.get("dropCnt")}, scrambling {drop.get("scramblingCnt")}')
 
-    state_file = os.path.join(os.path.dirname(a.library.rstrip('/')), '..', 'config', 'tvstack', 'librarian.json')
+    state_file = os.path.join(os.path.dirname(a.library.rstrip('/')), '..', 'config', 'jellystation', 'librarian.json')
     end = time.time() + 300
     entry = None
     while time.time() < end and not entry:

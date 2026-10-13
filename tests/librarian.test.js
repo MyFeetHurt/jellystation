@@ -3,7 +3,7 @@
 const test = require('node:test'), assert = require('node:assert');
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http');
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tvstack-test-'));
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'jellystation-test-'));
 const dirs = { recorded: path.join(root, 'recorded'), encoded: path.join(root, 'encoded'), library: path.join(root, 'library'), state: path.join(root, 'state') };
 Object.values(dirs).forEach(d => fs.mkdirSync(d, { recursive: true }));
 
@@ -25,10 +25,10 @@ let lib;
 test.before(async () => {
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   Object.assign(process.env, {
-    TVSTACK_EPGSTATION_URL: `http://127.0.0.1:${server.address().port}`, TVSTACK_LIBRARY: dirs.library,
-    TVSTACK_RECORDED_DIRS: `${dirs.recorded}:${dirs.encoded}`, TVSTACK_STATE_DIR: dirs.state, TVSTACK_SUBTITLES: 'false',
+    JELLYSTATION_EPGSTATION_URL: `http://127.0.0.1:${server.address().port}`, JELLYSTATION_LIBRARY: dirs.library,
+    JELLYSTATION_RECORDED_DIRS: `${dirs.recorded}:${dirs.encoded}`, JELLYSTATION_STATE_DIR: dirs.state, JELLYSTATION_SUBTITLES: 'false',
   });
-  lib = require('../rootfs/opt/tvstack/librarian/librarian.js');
+  lib = require('../rootfs/opt/jellystation/librarian/librarian.js');
 });
 test.after(() => { server.close(); fs.rmSync(root, { recursive: true, force: true }); });
 
@@ -97,14 +97,14 @@ test('skips recordings in progress and recordings without a thumbnail yet', asyn
   records = [recording(20, 'ニュース[字]', 0, 'n.m2ts', { isRecording: true }),
     recording(21, '天気予報', 0, 'w.m2ts', { thumbnails: [], startAt: now - 600e3, endAt: now - 10e3 })];
   const before = libraryFiles().length;
-  process.env.TVSTACK_ALLOW_MASS_DELETE = '';
+  process.env.JELLYSTATION_ALLOW_MASS_DELETE = '';
   await lib.pass('test');
   assert.ok(!libraryFiles().some(f => /ニュース|天気予報/.test(f)));
   assert.ok(libraryFiles().length <= before);
 });
 
 test('ARIB captions: ASS rows of one caption become one SRT cue, top to bottom', () => {
-  const { assToSrt } = require('../rootfs/opt/tvstack/librarian/epgmeta.js');
+  const { assToSrt } = require('../rootfs/opt/jellystation/librarian/epgmeta.js');
   const ass = [
     '[Events]',
     'Dialogue: 0,0:00:01.13,0:00:03.30,Default,,0,0,0,,{\\an7}{\\pos(170,329)}{\\fsp4}人のプライベートに踏み込んで',

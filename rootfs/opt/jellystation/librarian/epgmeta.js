@@ -784,7 +784,7 @@ function assToSrt(text) {
  * @returns {{ text?: string, error?: string }}
  */
 function extractSubtitle(input, format, cfg) {
-  const { decode, encode, clean } = SUBTITLE[format], out = path.join(os.tmpdir(), `tvstack-captions-${process.pid}.${format}`);
+  const { decode, encode, clean } = SUBTITLE[format], out = path.join(os.tmpdir(), `jellystation-captions-${process.pid}.${format}`);
   try {
     const error = runFfmpeg(cfg.subtitleFfmpeg, ['-hide_banner', '-nostdin', '-loglevel', 'error', ...decode, '-i', input, '-map', '0:s:0', ...encode, '-y', out]);
     if (error) return { error: /'0:s:0' for option 'map'|matches no streams/.test(error) ? 'no caption stream' : error };

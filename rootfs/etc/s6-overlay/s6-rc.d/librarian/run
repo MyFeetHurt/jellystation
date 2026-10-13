@@ -1,4 +1,4 @@
 #!/command/with-contenv bash
-cd /opt/tvstack/librarian || exit 1
+cd /opt/jellystation/librarian || exit 1
 unset LD_PRELOAD
 exec node librarian.js

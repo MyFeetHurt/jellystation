@@ -1,0 +1,72 @@
+#!/bin/bash
+# jellystation first-start and every-start preparation (s6 oneshot, runs before all services).
+# Creates the directory layout in /config and /media and writes default configs that don't exist yet.
+set -euo pipefail
+D=/opt/jellystation/defaults
+MK=/opt/mirakurun/node_modules/mirakurun
+
+mkdir -p /config/mirakurun/data /config/epgstation/{config,data,thumbnail,logs,drop} /config/jellystation /config/jellyfin /cache \
+         /media/recorded /media/encoded "${JELLYSTATION_LIBRARY:-/media/library}/${JELLYSTATION_TV_DIR:-TV}" \
+         "${JELLYSTATION_LIBRARY:-/media/library}/${JELLYSTATION_MOVIE_DIR:-Movies}"
+
+# --- Mirakurun ---
+[ -f /config/mirakurun/server.yml ] || cp "$MK/config/server.yml" /config/mirakurun/server.yml
+if [ -n "${JELLYSTATION_REMOTE_MIRAKURUN:-}" ]; then
+  # Another Mirakurun as tuner source (development, or a tuner box elsewhere). Channels are copied from it once.
+  # remoteMirakurunDecoder: true = the remote Mirakurun descrambles (it has the B-CAS card); this container has none.
+  host=${JELLYSTATION_REMOTE_MIRAKURUN%:*} port=${JELLYSTATION_REMOTE_MIRAKURUN##*:}
+  [ "$port" = "$JELLYSTATION_REMOTE_MIRAKURUN" ] && port=40772
+  if [ ! -f /config/mirakurun/tuners.yml ]; then
+    for i in $(seq 1 "${JELLYSTATION_REMOTE_TUNERS:-2}"); do
+      printf -- '- name: remote-%s\n  types: [GR, BS, CS, SKY]\n  remoteMirakurunHost: %s\n  remoteMirakurunPort: %s\n  remoteMirakurunDecoder: true\n' "$i" "$host" "$port"
+    done > /config/mirakurun/tuners.yml
+    echo "jellystation: tuners.yml -> ${JELLYSTATION_REMOTE_TUNERS:-2} remote tuners on $host:$port"
+  fi
+  if [ ! -f /config/mirakurun/channels.yml ]; then
+    if curl -fsS --max-time 30 "http://$host:$port/api/config/channels" \
+       | node -e 'const y=require(require.resolve("js-yaml",{paths:[process.argv[1]]}));let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.stdout.write(y.dump(JSON.parse(s))))' "$MK" \
+       > /config/mirakurun/channels.yml.tmp && [ -s /config/mirakurun/channels.yml.tmp ]; then
+      mv /config/mirakurun/channels.yml.tmp /config/mirakurun/channels.yml
+    else
+      rm -f /config/mirakurun/channels.yml.tmp
+      echo "jellystation: ERROR: could not copy channels from $host:$port" >&2
+      exit 1
+    fi
+    echo "jellystation: channels.yml copied from $host:$port"
+  fi
+fi
+if [ ! -f /config/mirakurun/tuners.yml ]; then
+  # Local tuners: generated from the devices passed to the container. A new channel list is scanned once Mirakurun
+  # runs (the librarian does that, see channel-scan).
+  if /opt/jellystation/bin/jellystation-tuners --write; then
+    if [ ! -f /config/mirakurun/channels.yml ]; then
+      echo '[]' > /config/mirakurun/channels.yml
+      { grep -q 'types: \[.*GR' /config/mirakurun/tuners.yml && echo GR
+        grep -q 'types: \[.*BS' /config/mirakurun/tuners.yml && printf 'BS\nCS\n'; } > /config/jellystation/channel-scan
+      echo "jellystation: channels will be scanned when Mirakurun is up ($(paste -sd, /config/jellystation/channel-scan))"
+    fi
+  else
+    cp "$D/mirakurun/tuners.yml" /config/mirakurun/tuners.yml
+    echo "jellystation: no tuner devices found. Pass them to the container (see README), delete config/mirakurun/tuners.yml" \
+         "and restart, or set JELLYSTATION_REMOTE_MIRAKURUN"
+  fi
+fi
+[ -f /config/mirakurun/channels.yml ] || cp "$MK/config/channels.yml" /config/mirakurun/channels.yml
+
+# --- EPGStation ---
+if [ ! -f /config/epgstation/config/config.yml ]; then
+  cp "$D/epgstation/config.yml" /config/epgstation/config/config.yml
+  if [ -n "${JELLYSTATION_REMOTE_MIRAKURUN:-}" ]; then
+    # EPGStation learns programmes from Mirakurun's event stream. EPG that a Mirakurun copies from a remote one
+    # produces no events, so with remote tuners EPGStation uses the tuner server's Mirakurun directly. The container's
+    # Mirakurun still serves Jellyfin Live TV and its guide.
+    sed -i "s|^mirakurunPath: .*|mirakurunPath: http://$host:$port/|" /config/epgstation/config/config.yml
+    echo "jellystation: EPGStation uses Mirakurun at $host:$port"
+  fi
+  [ -n "${JELLYSTATION_EPGSTATION_REC_PRIORITY:-}" ] && sed -i "s|^recPriority: .*|recPriority: $JELLYSTATION_EPGSTATION_REC_PRIORITY|" /config/epgstation/config/config.yml
+  [ -n "${JELLYSTATION_EPGSTATION_CONFLICT_PRIORITY:-}" ] && sed -i "s|^conflictPriority: .*|conflictPriority: $JELLYSTATION_EPGSTATION_CONFLICT_PRIORITY|" /config/epgstation/config/config.yml
+fi
+for f in enc.js operatorLogConfig.yml epgUpdaterLogConfig.yml serviceLogConfig.yml; do
+  [ -f "/config/epgstation/config/$f" ] || cp "$D/epgstation/$f" "/config/epgstation/config/$f"
+done
+cp "$D/epgstation/config.yml.template" /config/epgstation/config/config.yml.template # EPGStation's reference copy

@@ -1,20 +1,20 @@
-# Development stack on tvstack-dev: tuners come from the production Mirakurun (read-only use, 2 slots).
+# Development stack on the VM tvstack-dev (192.168.0.137): tuners come from the production Mirakurun (read-only use, 2 slots).
 services:
-  tvstack:
+  jellystation:
     build: ..
-    image: tvstack:dev
-    container_name: tvstack
+    image: jellystation:dev
+    container_name: jellystation
     restart: unless-stopped
     cap_add:
       - SYS_NICE # Mirakurun raises its own priority
     environment:
-      TVSTACK_REMOTE_MIRAKURUN: 192.168.0.118:40772
-      TVSTACK_REMOTE_TUNERS: "2"
+      JELLYSTATION_REMOTE_MIRAKURUN: 192.168.0.118:40772
+      JELLYSTATION_REMOTE_TUNERS: "2"
       # production EPGStation recordings win tuners over dev ones
-      TVSTACK_EPGSTATION_REC_PRIORITY: "1"
-      TVSTACK_EPGSTATION_CONFLICT_PRIORITY: "0"
-      TVSTACK_JELLYFIN_PASSWORD: tvstack-dev
-      TVSTACK_SYNC_INTERVAL: "120"
+      JELLYSTATION_EPGSTATION_REC_PRIORITY: "1"
+      JELLYSTATION_EPGSTATION_CONFLICT_PRIORITY: "0"
+      JELLYSTATION_JELLYFIN_PASSWORD: jellystation-dev
+      JELLYSTATION_SYNC_INTERVAL: "120"
       # no logo collection: it would tune the remote tuners
       LOGO_DATA_INTERVAL: "999999999"
     ports:

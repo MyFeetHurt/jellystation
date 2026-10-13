@@ -1,0 +1,36 @@
+# No tuner devices were found when this file was written, so these examples are all disabled.
+#
+# Easiest: pass your tuner devices to the container (see README), delete this file and restart. JellyStation then
+# writes the tuners for the devices it finds and scans the channels. `jellystation-tuners` inside the container shows
+# what it would find. Or enable an entry below (isDisabled: false) and scan channels yourself:
+#   curl -X PUT "http://<host>:40772/api/config/channels/scan?type=GR&setDisabledOnAdd=false"   (also BS, CS)
+#
+# Without local tuners, set JELLYSTATION_REMOTE_MIRAKURUN=host:port before the first start to use another Mirakurun.
+#
+# tune DEVICE <type> <channel> runs recisdb, which descrambles with the B-CAS card through pcscd.
+
+# PLEX PX-W3U4 / PX-Q3U4 / PX-W3PE4 / ... (px4_drv): S, S, T, T per group of four
+- name: PX4-S0
+  types: [BS, CS]
+  command: /opt/jellystation/bin/tune /dev/px4video0 <type> <channel>
+  isDisabled: true
+- name: PX4-T2
+  types: [GR]
+  command: /opt/jellystation/bin/tune /dev/px4video2 <type> <channel>
+  isDisabled: true
+
+# PLEX PX-MLT5PE / PX-MLT8PE / PX-M1UR, e-Better DTV02A (px4_drv): terrestrial and satellite on one device
+- name: pxmlt5-0
+  types: [GR, BS, CS]
+  command: /opt/jellystation/bin/tune /dev/pxmlt5video0 <type> <channel>
+  isDisabled: true
+
+# Earthsoft PT1/PT2/PT3, PLEX PX-S1UD and other DVB tuners (kernel drivers)
+- name: DVB0
+  types: [BS, CS]
+  command: /opt/jellystation/bin/tune /dev/dvb/adapter0/frontend0 <type> <channel>
+  isDisabled: true
+- name: DVB1
+  types: [GR]
+  command: /opt/jellystation/bin/tune /dev/dvb/adapter1/frontend0 <type> <channel>
+  isDisabled: true

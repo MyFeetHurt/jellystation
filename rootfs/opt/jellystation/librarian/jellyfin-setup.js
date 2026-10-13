@@ -2,9 +2,9 @@
  * Jellyfin first-time setup and library refresh, through Jellyfin's HTTP API. Every step checks first, so it is safe
  * to run on every start; settings the user changed in Jellyfin afterwards are left alone.
  *
- *   - startup wizard: language, admin user (TVSTACK_JELLYFIN_USER / TVSTACK_JELLYFIN_PASSWORD; a random password is
+ *   - startup wizard: language, admin user (JELLYSTATION_JELLYFIN_USER / JELLYSTATION_JELLYFIN_PASSWORD; a random password is
  *     generated and written to <state>/jellyfin-admin.txt when none is given);
- *   - an API key "tvstack" for the librarian (stored in <state>/jellyfin.key);
+ *   - an API key "jellystation" for the librarian (stored in <state>/jellyfin.key);
  *   - libraries "TV" (tvshows, NFO only: EPG titles match the wrong online shows) and "Movies" (NFO + online metadata);
  *   - Live TV: Mirakurun's M3U playlist as tuner and its XMLTV as guide, with the ARIB genres mapped to Jellyfin's
  *     movie/sports/news/kids categories.
@@ -13,7 +13,7 @@
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 
 const env = process.env;
-const AUTH = 'MediaBrowser Client="tvstack", Device="tvstack", DeviceId="tvstack-librarian", Version="1.0"';
+const AUTH = 'MediaBrowser Client="jellystation", Device="jellystation", DeviceId="jellystation-librarian", Version="1.0"';
 let base = 'http://127.0.0.1:8096', apiKey = null, keyFile = null;
 
 const log = (...args) => console.log(new Date().toISOString(), 'jellyfin:', ...args);
@@ -51,12 +51,12 @@ async function waitUp() {
 }
 
 async function wizard(stateDir, user, info) {
-  let password = env.TVSTACK_JELLYFIN_PASSWORD;
+  let password = env.JELLYSTATION_JELLYFIN_PASSWORD;
   if (!password) {
     password = crypto.randomBytes(12).toString('base64url');
     fs.writeFileSync(path.join(stateDir, 'jellyfin-admin.txt'), `user: ${user}\npassword: ${password}\n`, { mode: 0o600 });
   }
-  const lang = env.TVSTACK_LANGUAGE || 'ja';
+  const lang = env.JELLYSTATION_LANGUAGE || 'ja';
   // The wizard endpoints answer 503 for a moment after Jellyfin reports ready.
   for (let i = 0; ; i++) {
     try { await call('POST', '/Startup/Configuration', { UICulture: lang, MetadataCountryCode: 'JP', PreferredMetadataLanguage: lang }, null); break; } catch (e) {
@@ -67,38 +67,38 @@ async function wizard(stateDir, user, info) {
   await call('GET', '/Startup/User', undefined, null);
   await call('POST', '/Startup/User', { Name: user, Password: password }, null);
   await call('POST', '/Startup/Complete', undefined, null);
-  log(`setup wizard done (Jellyfin ${info.Version}), admin user "${user}"` + (env.TVSTACK_JELLYFIN_PASSWORD ? '' : `, password in ${stateDir}/jellyfin-admin.txt`));
+  log(`setup wizard done (Jellyfin ${info.Version}), admin user "${user}"` + (env.JELLYSTATION_JELLYFIN_PASSWORD ? '' : `, password in ${stateDir}/jellyfin-admin.txt`));
   return password;
 }
 
 async function ensureKey(stateDir, user, password) {
   // The stored key still works: done.
   if (apiKey) { try { await call('GET', '/System/Info'); return; } catch { apiKey = null; } }
-  if (!password) throw new Error(`no working API key in ${keyFile} and no TVSTACK_JELLYFIN_PASSWORD to create one`);
+  if (!password) throw new Error(`no working API key in ${keyFile} and no JELLYSTATION_JELLYFIN_PASSWORD to create one`);
   const auth = await call('POST', '/Users/AuthenticateByName', { Username: user, Pw: password }, null);
   const token = auth.AccessToken;
-  let key = (await call('GET', '/Auth/Keys', undefined, token)).Items.find(k => k.AppName === 'tvstack');
+  let key = (await call('GET', '/Auth/Keys', undefined, token)).Items.find(k => k.AppName === 'jellystation');
   if (!key) {
-    await call('POST', '/Auth/Keys?app=tvstack', undefined, token);
-    key = (await call('GET', '/Auth/Keys', undefined, token)).Items.find(k => k.AppName === 'tvstack');
+    await call('POST', '/Auth/Keys?app=jellystation', undefined, token);
+    key = (await call('GET', '/Auth/Keys', undefined, token)).Items.find(k => k.AppName === 'jellystation');
   }
   apiKey = key.AccessToken;
   fs.writeFileSync(keyFile, apiKey + '\n', { mode: 0o600 });
-  log('API key "tvstack" stored');
+  log('API key "jellystation" stored');
 }
 
 async function ensureLibraries(cfg) {
   const folders = await call('GET', '/Library/VirtualFolders');
   const has = dir => folders.some(f => (f.Locations || []).some(l => path.resolve(l) === path.resolve(dir)));
-  const lang = env.TVSTACK_LANGUAGE || 'ja';
+  const lang = env.JELLYSTATION_LANGUAGE || 'ja';
   const common = { PreferredMetadataLanguage: lang, MetadataCountryCode: 'JP', EnableRealtimeMonitor: true, SaveLocalMetadata: false,
     LocalMetadataReaderOrder: ['Nfo'], EnableEmbeddedTitles: false, EnableChapterImageExtraction: false };
   const nfoOnly = type => ({ Type: type, MetadataFetchers: [], MetadataFetcherOrder: [], ImageFetchers: [], ImageFetcherOrder: [] });
-  const tvOnline = /^(1|true|yes)$/i.test(env.TVSTACK_TV_ONLINE_METADATA || '');
+  const tvOnline = /^(1|true|yes)$/i.test(env.JELLYSTATION_TV_ONLINE_METADATA || '');
   const libs = [
-    { name: env.TVSTACK_TV_LIBRARY_NAME || 'TV', type: 'tvshows', dir: path.join(cfg.library, cfg.tvDir),
+    { name: env.JELLYSTATION_TV_LIBRARY_NAME || 'TV', type: 'tvshows', dir: path.join(cfg.library, cfg.tvDir),
       options: { ...common, TypeOptions: tvOnline ? [] : ['Series', 'Season', 'Episode'].map(nfoOnly) } },
-    { name: env.TVSTACK_MOVIE_LIBRARY_NAME || 'Movies', type: 'movies', dir: path.join(cfg.library, cfg.movieDir), options: common },
+    { name: env.JELLYSTATION_MOVIE_LIBRARY_NAME || 'Movies', type: 'movies', dir: path.join(cfg.library, cfg.movieDir), options: common },
   ];
   for (const lib of libs) {
     if (has(lib.dir)) continue;
@@ -109,8 +109,8 @@ async function ensureLibraries(cfg) {
 }
 
 async function ensureLiveTv() {
-  if (/^(0|false|no)$/i.test(env.TVSTACK_LIVETV || '')) return;
-  const mirakurun = (env.TVSTACK_MIRAKURUN_URL || 'http://127.0.0.1:40772').replace(/\/$/, '');
+  if (/^(0|false|no)$/i.test(env.JELLYSTATION_LIVETV || '')) return;
+  const mirakurun = (env.JELLYSTATION_MIRAKURUN_URL || 'http://127.0.0.1:40772').replace(/\/$/, '');
   const conf = await call('GET', '/System/Configuration/livetv');
   if (!(conf.TunerHosts || []).some(t => (t.Url || '').startsWith(mirakurun))) {
     let tuners = 0;
@@ -135,9 +135,9 @@ async function loadKey(cfg) {
 
 async function run(cfg) {
   await loadKey(cfg);
-  const user = env.TVSTACK_JELLYFIN_USER || 'admin';
+  const user = env.JELLYSTATION_JELLYFIN_USER || 'admin';
   const info = await waitUp();
-  let password = env.TVSTACK_JELLYFIN_PASSWORD;
+  let password = env.JELLYSTATION_JELLYFIN_PASSWORD;
   if (!info.StartupWizardCompleted) password = await wizard(cfg.stateDir, user, info);
   await ensureKey(cfg.stateDir, user, password);
   await ensureLibraries(cfg);
@@ -151,7 +151,7 @@ async function refreshLibrary() {
 
 /** Run Jellyfin's "Refresh Guide" task: re-reads the tuner playlist (channels) and the XMLTV guide. */
 async function refreshGuide() {
-  if (!apiKey || /^(0|false|no)$/i.test(env.TVSTACK_LIVETV || '')) return;
+  if (!apiKey || /^(0|false|no)$/i.test(env.JELLYSTATION_LIVETV || '')) return;
   const task = (await call('GET', '/ScheduledTasks')).find(t => t.Key === 'RefreshGuide');
   if (!task) return;
   await call('POST', `/ScheduledTasks/Running/${task.Id}`);

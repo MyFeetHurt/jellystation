@@ -1,0 +1,8 @@
+#!/bin/sh
+# Mirakurun tuner command for local devices: tune DEVICE TYPE CHANNEL  (tuners.yml: tune /dev/px4video0 <type> <channel>)
+# recisdb names terrestrial channels T13..T62 where Mirakurun's channels.yml has 13..62; BS/CS names are the same.
+# recisdb descrambles with the B-CAS card through pcscd. JELLYSTATION_RECISDB_ARGS adds options, e.g. "--lnb 15v".
+dev=$1 type=$2 ch=$3
+case "$type:$ch" in GR:[0-9]*) ch=T$ch ;; esac
+# shellcheck disable=SC2086
+exec recisdb tune --device "$dev" --channel "$ch" ${JELLYSTATION_RECISDB_ARGS:-} -

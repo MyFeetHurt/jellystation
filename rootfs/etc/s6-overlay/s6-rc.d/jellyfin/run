@@ -1,4 +1,4 @@
 #!/command/with-contenv bash
 export JELLYFIN_DATA_DIR=/config/jellyfin JELLYFIN_CONFIG_DIR=/config/jellyfin/config JELLYFIN_LOG_DIR=/config/jellyfin/log \
-  JELLYFIN_CACHE_DIR=/cache JELLYFIN_FFMPEG=/opt/tvstack/ffmpeg/ffmpeg LD_PRELOAD=/usr/lib/jellyfin/libjemalloc.so.2
-cd /jellyfin && exec /jellyfin/jellyfin --ffmpeg /opt/tvstack/ffmpeg/ffmpeg
+  JELLYFIN_CACHE_DIR=/cache JELLYFIN_FFMPEG=/opt/jellystation/ffmpeg/ffmpeg LD_PRELOAD=/usr/lib/jellyfin/libjemalloc.so.2
+cd /jellyfin && exec /jellyfin/jellyfin --ffmpeg /opt/jellystation/ffmpeg/ffmpeg

@@ -1,4 +1,4 @@
-# EPGStation configuration for tvstack (written on first start; edit freely, then restart the container).
+# EPGStation configuration for jellystation (written on first start; edit freely, then restart the container).
 # Reference: https://github.com/l3tnun/EPGStation/blob/master/doc/conf-manual.md
 port: 8888
 mirakurunPath: http+unix://%2Fvar%2Frun%2Fmirakurun.sock/
@@ -50,9 +50,9 @@ encode:
       suffix: .mp4
       rate: 4.0
 
-# tvstack: tell the librarian to update the Jellyfin library (it also checks every 10 minutes)
-recordingFinishCommand: '/opt/tvstack/bin/librarian-notify'
-encodingFinishCommand: '/opt/tvstack/bin/librarian-notify'
+# jellystation: tell the librarian to update the Jellyfin library (it also checks every 10 minutes)
+recordingFinishCommand: '/opt/jellystation/bin/librarian-notify'
+encodingFinishCommand: '/opt/jellystation/bin/librarian-notify'
 
 urlscheme:
     m2ts:

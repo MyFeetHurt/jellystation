@@ -9,7 +9,7 @@
  *   3. when the preferred video changes (an encode finished), the library file is swapped;
  *   4. recordings deleted in EPGStation lose their library files (only files this service created, tracked in STATE);
  *   5. when anything changed, Jellyfin is asked to scan its libraries.
- * On start it also runs the Jellyfin first-time setup (jellyfin-setup.js) unless TVSTACK_JELLYFIN_SETUP=false.
+ * On start it also runs the Jellyfin first-time setup (jellyfin-setup.js) unless JELLYSTATION_JELLYFIN_SETUP=false.
  *
  * Settings (environment): see CONFIG below. No npm dependencies (Node.js 22).
  */
@@ -21,20 +21,20 @@ const mirakurunEpg = require('./mirakurun-epg');
 
 const env = process.env;
 const CONFIG = {
-  epgstation: (env.TVSTACK_EPGSTATION_URL || 'http://127.0.0.1:8888').replace(/\/$/, ''),
-  jellyfin: (env.TVSTACK_JELLYFIN_URL || 'http://127.0.0.1:8096').replace(/\/$/, ''),
-  library: env.TVSTACK_LIBRARY || '/media/library',
-  tvDir: env.TVSTACK_TV_DIR || 'TV',
-  movieDir: env.TVSTACK_MOVIE_DIR || 'Movies',
-  recordedDirs: (env.TVSTACK_RECORDED_DIRS || '/media/recorded:/media/encoded').split(':').filter(Boolean),
-  prefer: env.TVSTACK_PREFER || 'encoded', // 'encoded': an encoded file when there is one, else the TS; 'ts': always the TS
-  stateDir: env.TVSTACK_STATE_DIR || '/config/tvstack',
-  interval: +(env.TVSTACK_SYNC_INTERVAL || 600) * 1000,
-  listen: +(env.TVSTACK_LIBRARIAN_PORT || 40780),
-  massDelete: /^(1|true|yes)$/i.test(env.TVSTACK_ALLOW_MASS_DELETE || ''),
+  epgstation: (env.JELLYSTATION_EPGSTATION_URL || 'http://127.0.0.1:8888').replace(/\/$/, ''),
+  jellyfin: (env.JELLYSTATION_JELLYFIN_URL || 'http://127.0.0.1:8096').replace(/\/$/, ''),
+  library: env.JELLYSTATION_LIBRARY || '/media/library',
+  tvDir: env.JELLYSTATION_TV_DIR || 'TV',
+  movieDir: env.JELLYSTATION_MOVIE_DIR || 'Movies',
+  recordedDirs: (env.JELLYSTATION_RECORDED_DIRS || '/media/recorded:/media/encoded').split(':').filter(Boolean),
+  prefer: env.JELLYSTATION_PREFER || 'encoded', // 'encoded': an encoded file when there is one, else the TS; 'ts': always the TS
+  stateDir: env.JELLYSTATION_STATE_DIR || '/config/jellystation',
+  interval: +(env.JELLYSTATION_SYNC_INTERVAL || 600) * 1000,
+  listen: +(env.JELLYSTATION_LIBRARIAN_PORT || 40780),
+  massDelete: /^(1|true|yes)$/i.test(env.JELLYSTATION_ALLOW_MASS_DELETE || ''),
   // ARIB captions as sidecar files: 'srt' (any client), 'ass' (position and colour), 'both', or 'false'
-  subtitles: { srt: ['srt'], ass: ['ass'], both: ['ass', 'srt'] }[(env.TVSTACK_SUBTITLES || 'srt').toLowerCase()] || [],
-  subtitleFfmpeg: env.TVSTACK_SUBTITLE_FFMPEG || '/opt/ffmpeg-arib/bin/ffmpeg',
+  subtitles: { srt: ['srt'], ass: ['ass'], both: ['ass', 'srt'] }[(env.JELLYSTATION_SUBTITLES || 'srt').toLowerCase()] || [],
+  subtitleFfmpeg: env.JELLYSTATION_SUBTITLE_FFMPEG || '/opt/ffmpeg-arib/bin/ffmpeg',
 };
 /** Changes when the caption setting changes, so existing library entries get (or keep) the right sidecars. */
 const SUBS_KEY = CONFIG.subtitles.join('+') || 'none';
@@ -229,7 +229,7 @@ async function pass(reason) {
   const known = Object.keys(state.items).length;
   if (gone.length && !CONFIG.massDelete && gone.length > 5 && gone.length > known / 2) {
     log(`refusing to remove ${gone.length} of ${known} library entries at once (EPGStation database reset?); ` +
-      'set TVSTACK_ALLOW_MASS_DELETE=true to allow');
+      'set JELLYSTATION_ALLOW_MASS_DELETE=true to allow');
   } else {
     for (const id of gone) {
       removeEntry(state.items[id]);
@@ -259,7 +259,7 @@ async function main() {
     log(`Mirakurun ready (${count} services)`);
     await jellyfinSetup.refreshGuide();
   }).catch(e => log(`Mirakurun first-start step failed: ${e.message}`));
-  if (!/^(0|false|no)$/i.test(env.TVSTACK_JELLYFIN_SETUP || '')) {
+  if (!/^(0|false|no)$/i.test(env.JELLYSTATION_JELLYFIN_SETUP || '')) {
     await jellyfinSetup.run(CONFIG).catch(e => log(`Jellyfin setup failed: ${e.stack || e.message}`));
   } else {
     await jellyfinSetup.loadKey(CONFIG).catch(() => {});

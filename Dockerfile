@@ -1,4 +1,4 @@
-# tvstack: Mirakurun + EPGStation + Jellyfin in one container, supervised by s6-overlay.
+# JellyStation: Mirakurun + EPGStation + Jellyfin in one container, supervised by s6-overlay.
 #
 #   Mirakurun  :40772  tuners (local PT3/PX devices via recisdb, or another Mirakurun)
 #   EPGStation :8888   recording; finished recordings are put in the Jellyfin library by the librarian
@@ -52,7 +52,7 @@ ARG RECISDB_VERSION=1.3.0
 ARG TARGETARCH
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq pcscd libccid pcsc-tools libpcsclite1 tzdata ca-certificates \
+    && apt-get install -y --no-install-recommends jq dvb-tools pcscd libccid pcsc-tools libpcsclite1 tzdata ca-certificates \
     && curl -fsSL -o /tmp/recisdb.deb \
        "https://github.com/kazuki0824/recisdb-rs/releases/download/${RECISDB_VERSION}/recisdb_${RECISDB_VERSION}-1_${TARGETARCH:-amd64}.deb" \
     && apt-get install -y --no-install-recommends /tmp/recisdb.deb \
