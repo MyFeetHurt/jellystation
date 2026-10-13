@@ -5,7 +5,9 @@
  *   - startup wizard: language, admin user (JELLYSTATION_JELLYFIN_USER / JELLYSTATION_JELLYFIN_PASSWORD; a random password is
  *     generated and written to <state>/jellyfin-admin.txt when none is given);
  *   - an API key "jellystation" for the librarian (stored in <state>/jellyfin.key);
- *   - libraries "TV" (tvshows, NFO only: EPG titles match the wrong online shows) and "Movies" (NFO + online metadata);
+ *   - server name JellyStation (JELLYSTATION_SERVER_NAME) instead of the container's hostname;
+ *   - libraries "TV" (tvshows, NFO only: EPG titles match the wrong online shows) and "Movies" (NFO + online metadata),
+ *     named テレビ番組 and 映画 when the language is Japanese;
  *   - Live TV: Mirakurun's M3U playlist as tuner and its XMLTV as guide, with the ARIB genres mapped to Jellyfin's
  *     movie/sports/news/kids categories.
  */
@@ -95,10 +97,11 @@ async function ensureLibraries(cfg) {
     LocalMetadataReaderOrder: ['Nfo'], EnableEmbeddedTitles: false, EnableChapterImageExtraction: false };
   const nfoOnly = type => ({ Type: type, MetadataFetchers: [], MetadataFetcherOrder: [], ImageFetchers: [], ImageFetcherOrder: [] });
   const tvOnline = /^(1|true|yes)$/i.test(env.JELLYSTATION_TV_ONLINE_METADATA || '');
+  const ja = lang.startsWith('ja');
   const libs = [
-    { name: env.JELLYSTATION_TV_LIBRARY_NAME || 'TV', type: 'tvshows', dir: path.join(cfg.library, cfg.tvDir),
+    { name: env.JELLYSTATION_TV_LIBRARY_NAME || (ja ? 'テレビ番組' : 'TV'), type: 'tvshows', dir: path.join(cfg.library, cfg.tvDir),
       options: { ...common, TypeOptions: tvOnline ? [] : ['Series', 'Season', 'Episode'].map(nfoOnly) } },
-    { name: env.JELLYSTATION_MOVIE_LIBRARY_NAME || 'Movies', type: 'movies', dir: path.join(cfg.library, cfg.movieDir), options: common },
+    { name: env.JELLYSTATION_MOVIE_LIBRARY_NAME || (ja ? '映画' : 'Movies'), type: 'movies', dir: path.join(cfg.library, cfg.movieDir), options: common },
   ];
   for (const lib of libs) {
     if (has(lib.dir)) continue;
@@ -106,6 +109,15 @@ async function ensureLibraries(cfg) {
     await call('POST', `/Library/VirtualFolders?${q}`, { LibraryOptions: { ...lib.options, PathInfos: [{ Path: lib.dir }] } });
     log(`library "${lib.name}" (${lib.type}) -> ${lib.dir}`);
   }
+}
+
+/** A server name instead of the container's hostname (only when none is set). */
+async function ensureServerName() {
+  const conf = await call('GET', '/System/Configuration');
+  if (conf.ServerName) return;
+  conf.ServerName = env.JELLYSTATION_SERVER_NAME || 'JellyStation';
+  await call('POST', '/System/Configuration', conf);
+  log(`server name "${conf.ServerName}"`);
 }
 
 async function ensureLiveTv() {
@@ -147,6 +159,7 @@ async function run(cfg) {
   let password = env.JELLYSTATION_JELLYFIN_PASSWORD;
   if (!info.StartupWizardCompleted) password = await wizard(cfg.stateDir, user, info);
   await ensureKey(cfg.stateDir, user, password);
+  await ensureServerName();
   await ensureLibraries(cfg);
   await ensureLiveTv();
 }

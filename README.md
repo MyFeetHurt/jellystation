@@ -119,8 +119,11 @@ Config files are only written when they don't exist, so your changes are kept.
 | `TZ` | `Asia/Tokyo` | time zone (EPGStation file names, guide) |
 | `JELLYSTATION_JELLYFIN_USER` / `JELLYSTATION_JELLYFIN_PASSWORD` | `admin` / random | Jellyfin admin created on first start; a random password is written to `/config/jellystation/jellyfin-admin.txt` |
 | `JELLYSTATION_LANGUAGE` | `ja` | Jellyfin UI and metadata language |
+| `JELLYSTATION_SERVER_NAME` | `JellyStation` | Jellyfin's server name, set on the first start |
+| `JELLYSTATION_TV_LIBRARY_NAME` / `JELLYSTATION_MOVIE_LIBRARY_NAME` | `テレビ番組` / `映画` (`TV` / `Movies` in other languages) | names of the libraries created on the first start |
 | `JELLYSTATION_JELLYFIN_SETUP` | `true` | `false`: don't touch Jellyfin's setup (the library refresh still needs `/config/jellystation/jellyfin.key`) |
 | `JELLYSTATION_LIVETV` | `true` | add Mirakurun as Jellyfin Live TV tuner and guide |
+| `JELLYSTATION_LIVETV_DUPLICATES` | `false` | `true`: also list subchannels that only simulcast another channel (MBS2, MBS3, ...) |
 | `JELLYSTATION_TV_ONLINE_METADATA` | `false` | `true`: let Jellyfin look up TV shows online (EPG titles often match the wrong show) |
 | `JELLYSTATION_SUBTITLES` | `srt` | ARIB captions as sidecar files: `srt` (plain text, any client), `ass` (keeps position and colour; Jellyfin's web player needs a Japanese fallback font for it), `both`, or `false` |
 | `JELLYSTATION_PREFER` | `encoded` | which file goes into the library: `encoded` (when there is one) or `ts` |

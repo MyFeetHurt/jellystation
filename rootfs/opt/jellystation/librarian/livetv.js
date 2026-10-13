@@ -3,6 +3,10 @@
  * Mirakurun's XMLTV added as tvg-chno (1.1 NHK総合, 101.1 NHK BS, ...) and the channel logos Mirakurun has collected.
  * Without tvg-chno Jellyfin numbers the channels by Mirakurun's service id (3211240960, 400101), which also sorts
  * terrestrial last. The streams still come straight from Mirakurun.
+ *
+ * Subchannels that only simulcast another channel (MBS2 and MBS3 showing MBS's programmes) are left out: a channel
+ * whose every programme is also on an earlier channel at the same time. A subchannel with a programme of its own
+ * (split sports coverage) stays. JELLYSTATION_LIVETV_DUPLICATES=true keeps them all.
  */
 'use strict';
 const url = (process.env.JELLYSTATION_MIRAKURUN_URL || 'http://127.0.0.1:40772').replace(/\/$/, '');
@@ -23,8 +27,23 @@ async function playlist() {
     if (n) numbers.set(id, n[1]);
   }
   const logos = new Set(services.filter(s => s.hasLogoData).map(s => String(s.id)));
-  return m3u.replace(/^#EXTINF:-1 tvg-id="(\d+)"/gm, (line, id) =>
-    line + (numbers.has(id) ? ` tvg-chno="${numbers.get(id)}"` : '') + (logos.has(id) ? ` tvg-logo="${url}/api/services/${id}/logo"` : ''));
+  const guide = new Map(); // channel id -> Set of "start title"
+  for (const [, start, id, title] of xmltv.matchAll(/<programme start="(\d+)[^"]*"[^>]*channel="(\d+)">\s*<title>([^<]*)<\/title>/g)) {
+    if (!guide.has(id)) guide.set(id, new Set());
+    guide.get(id).add(start + ' ' + title);
+  }
+  const keepAll = /^(1|true|yes)$/i.test(process.env.JELLYSTATION_LIVETV_DUPLICATES || '');
+  const kept = [];
+  // Entries: "#KODIPROP…", "#EXTINF…", stream URL
+  const [head, ...entries] = m3u.split(/^(?=#KODIPROP)/m);
+  return head + entries.filter(entry => {
+    const own = guide.get((entry.match(/tvg-id="(\d+)"/) || [])[1]);
+    if (keepAll || !own || !own.size) return true;
+    if (kept.some(other => [...own].every(p => other.has(p)))) return false;
+    kept.push(own);
+    return true;
+  }).map(entry => entry.replace(/^#EXTINF:-1 tvg-id="(\d+)"/m, (line, id) =>
+    line + (numbers.has(id) ? ` tvg-chno="${numbers.get(id)}"` : '') + (logos.has(id) ? ` tvg-logo="${url}/api/services/${id}/logo"` : ''))).join('');
 }
 
 module.exports = { playlist };
