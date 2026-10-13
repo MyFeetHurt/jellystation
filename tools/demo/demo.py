@@ -68,7 +68,7 @@ def card_end():
     return ('<div class="wrap"><div class="big">Jelly<span class="x">Station</span></div>'
             '<div class="sub">録画・ライブラリ・ライブTV を、ひとつに</div>'
             '<div class="subsub">Mirakurun + EPGStation + Jellyfin, unmodified: JellyStation only adds configuration</div>'
-            '<div class="subsub" style="margin-top:40px">github.com/MyFeetHurt/JellyStation</div></div>')
+            '<div class="subsub" style="margin-top:40px">github.com/MyFeetHurt/jellystation</div></div>')
 
 
 class Jf:
