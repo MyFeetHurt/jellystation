@@ -13,11 +13,12 @@ mkdir -p /config/mirakurun/data /config/epgstation/{config,data,thumbnail,logs,d
 [ -f /config/mirakurun/server.yml ] || cp "$MK/config/server.yml" /config/mirakurun/server.yml
 if [ -n "${TVSTACK_REMOTE_MIRAKURUN:-}" ]; then
   # Another Mirakurun as tuner source (development, or a tuner box elsewhere). Channels are copied from it once.
+  # remoteMirakurunDecoder: true = the remote Mirakurun descrambles (it has the B-CAS card); this container has none.
   host=${TVSTACK_REMOTE_MIRAKURUN%:*} port=${TVSTACK_REMOTE_MIRAKURUN##*:}
   [ "$port" = "$TVSTACK_REMOTE_MIRAKURUN" ] && port=40772
   if [ ! -f /config/mirakurun/tuners.yml ]; then
     for i in $(seq 1 "${TVSTACK_REMOTE_TUNERS:-2}"); do
-      printf -- '- name: remote-%s\n  types: [GR, BS, CS, SKY]\n  remoteMirakurunHost: %s\n  remoteMirakurunPort: %s\n  remoteMirakurunDecoder: false\n' "$i" "$host" "$port"
+      printf -- '- name: remote-%s\n  types: [GR, BS, CS, SKY]\n  remoteMirakurunHost: %s\n  remoteMirakurunPort: %s\n  remoteMirakurunDecoder: true\n' "$i" "$host" "$port"
     done > /config/mirakurun/tuners.yml
     echo "tvstack: tuners.yml -> ${TVSTACK_REMOTE_TUNERS:-2} remote tuners on $host:$port"
   fi
