@@ -27,7 +27,7 @@ conflictPriority: 1
 recPriority: 2
 
 recordedFormat: '%TITLE% %YEAR%-%MONTH%-%DAY% %HOUR%-%MIN%'
-recordedFileExtension: .m2ts
+recordedFileExtension: .ts
 recorded:
     - name: recorded
       path: /media/recorded

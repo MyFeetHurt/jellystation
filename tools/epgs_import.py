@@ -3,13 +3,14 @@
 
 For each recorded id on the source: read its programme data, create the recording on the target (POST /api/recorded)
 and upload the TS found under SOURCE_DIR (POST /api/videos/upload; EPGStation stores a copy in its recorded directory and
-makes the thumbnail). The source and its files are only read. Recordings the target already has (same name and start
-time) are skipped.
+makes the thumbnail). The file is named like JellyStation's own recordings, '<title> 2026-10-13 22-00.ts' (Japan time),
+whatever the source called it. The source and its files are only read. Recordings the target already has (same name
+and start time) are skipped.
 
 usage: epgs_import.py SOURCE_URL SOURCE_DIR TARGET_URL ID [ID ...]
    e.g. epgs_import.py http://192.168.0.202:8888 /mnt/Media1/epgs-kodi-dev/recorded http://192.168.0.137:18888 102 129
 """
-import json, os, re, subprocess, sys, tempfile, urllib.request
+import datetime, json, os, re, subprocess, sys, tempfile, urllib.request
 
 FIELDS = ['channelId', 'startAt', 'endAt', 'name', 'description', 'extended', 'genre1', 'subGenre1', 'genre2', 'subGenre2',
           'genre3', 'subGenre3', 'videoType', 'videoResolution', 'videoStreamContent', 'videoComponentType',
@@ -21,6 +22,12 @@ def call(url, body=None):
                                  method='POST' if body is not None else 'GET', headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=60) as r:
         return json.load(r)
+
+
+def start(ms):
+    """'2026-10-13 22-00' in Japan time, as recordedFormat writes it."""
+    jst = datetime.timezone(datetime.timedelta(hours=9))
+    return datetime.datetime.fromtimestamp(ms / 1000, jst).strftime('%Y-%m-%d %H-%M')
 
 
 def find(root, filename):
@@ -49,9 +56,9 @@ def main():
         print(f'{rid} -> {new}: {rec["name"]} ({size:.1f} GB) ...', flush=True)
         # curl -F can't take ';' ',' '"' in names: upload through a plainly named link, with a cleaned file name
         with tempfile.TemporaryDirectory() as tmp:
-            link = os.path.join(tmp, 'video.m2ts')
+            link = os.path.join(tmp, 'video.ts')
             os.symlink(path, link)
-            name = re.sub(r'[;,"\\]', '_', os.path.basename(path))
+            name = re.sub(r'[;,"\\/]', '_', f'{rec["name"]} {start(rec["startAt"])}.ts')
             subprocess.run(['curl', '-fsS', '-o', '/dev/null', '-X', 'POST', f'{dst}/videos/upload',
                             '-F', f'recordedId={new}', '-F', 'parentDirectoryName=recorded', '-F', 'viewName=TS',
                             '-F', 'fileType=ts', '-F', f'file=@{link};filename="{name}"'], check=True)

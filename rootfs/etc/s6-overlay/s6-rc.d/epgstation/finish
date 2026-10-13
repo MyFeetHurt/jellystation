@@ -1,0 +1,8 @@
+#!/bin/bash
+# EPGStation's Service and EPG updater processes outlive a SIGTERM to the main process and keep port 8888, so the next
+# start fails and the API is left talking to a dead operator. s6 passes the old process group as $4: stop all of it.
+[ -n "$4" ] && [ "$4" -gt 1 ] || exit 0
+kill -TERM -- "-$4" 2>/dev/null || exit 0
+for _ in 1 2 3; do sleep 1; kill -0 -- "-$4" 2>/dev/null || exit 0; done
+kill -KILL -- "-$4" 2>/dev/null
+exit 0

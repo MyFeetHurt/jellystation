@@ -107,11 +107,11 @@ restarting, or use Mirakurun's scan API. The tuner command is `/opt/jellystation
 /config/jellyfin/     Jellyfin data, config and logs
 /config/jellystation/      librarian state, Jellyfin API key (and generated admin password)
 /cache/               Jellyfin cache and transcodes
-/media/recorded/      EPGStation recordings (TS)
+/media/recorded/      EPGStation recordings: <title> 2026-10-10 13-15.ts (title, date, start time; no seconds)
 /media/encoded/       EPGStation encodes
-/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.m2ts + .nfo + -thumb.jpg + .ja.srt,
+/media/library/TV/    TV/<Show>/<Show> - 2026-10-10 1315 - <subtitle>.ts + .nfo + -thumb.jpg + .ja.srt,
                       tvshow.nfo, poster.jpg / landscape.jpg / fanart.jpg (from an episode thumbnail)
-/media/library/Movies/  Movies/<Title> (<Year>)/<Title> (<Year>).m2ts + .nfo
+/media/library/Movies/  Movies/<Title> (<Year>)/<Title> (<Year>).ts + .nfo
 ```
 
 Config files are only written when they don't exist, so your changes are kept.
