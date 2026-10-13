@@ -2,7 +2,7 @@
 """Copy finished recordings from one EPGStation to another (e.g. into a test JellyStation), with their programme data.
 
 For each recorded id on the source: read its programme data, create the recording on the target (POST /api/recorded)
-and upload the TS from SOURCE_DIR (POST /api/videos/upload; EPGStation stores a copy in its recorded directory and
+and upload the TS found under SOURCE_DIR (POST /api/videos/upload; EPGStation stores a copy in its recorded directory and
 makes the thumbnail). The source and its files are only read. Recordings the target already has (same name and start
 time) are skipped.
 
@@ -23,6 +23,14 @@ def call(url, body=None):
         return json.load(r)
 
 
+def find(root, filename):
+    """The API gives the file name only; rules can put recordings in subdirectories."""
+    for d, _, files in os.walk(root):
+        if filename in files:
+            return os.path.join(d, filename)
+    return None
+
+
 def main():
     if len(sys.argv) < 5:
         print(__doc__); return 2
@@ -31,7 +39,7 @@ def main():
     for rid in sys.argv[4:]:
         rec = call(f'{src}/recorded/{rid}?isHalfWidth=false')
         ts = next((v for v in rec.get('videoFiles') or [] if v['type'] == 'ts'), None)
-        path = os.path.join(src_dir, ts['filename']) if ts else None
+        path = find(src_dir, ts['filename']) if ts else None
         if (rec['name'], rec['startAt']) in have:
             print(f'{rid}: already there: {rec["name"]}'); continue
         if not path or not os.path.isfile(path):

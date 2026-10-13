@@ -233,9 +233,11 @@ async function pass(reason) {
     // Thumbnails appear a moment after the recording ends: wait up to 3 minutes for one.
     if (!(rec.thumbnails || []).length && Date.now() - rec.endAt < 180e3) { retrySoon = true; continue; }
     const same = old && old.source === video.full && fs.existsSync(old.dst);
-    if (same && old.subs === SUBS_KEY) continue;
+    // Placed without a thumbnail (EPGStation busy) and there is one now: place again to add it.
+    const thumbLate = same && !old.thumb && (rec.thumbnails || []).length > 0;
+    if (same && old.subs === SUBS_KEY && !thumbLate) continue;
     try {
-      // Same video, other caption setting: placing again keeps the files and adds the missing sidecars.
+      // Same video, other caption setting or a late thumbnail: placing again keeps the files and adds what's missing.
       if (old && !same) { removeEntry(old); log(`recorded ${id}: replacing ${old.dst}`); }
       state.items[id] = await place(rec, video);
       changed++;
