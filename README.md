@@ -72,13 +72,15 @@ kinds of Linux tuner device:
 |---|---|---|
 | PLEX PX-W3U4, PX-Q3U4, PX-W3PE4, PX-Q3PE4, PX-W3PE5, PX-Q3PE5 | [px4_drv](https://github.com/tsukumijima/px4_drv): `sudo apt install ./px4-drv-dkms_*_all.deb` | `/dev/px4video*` |
 | PLEX PX-MLT5PE, PX-MLT8PE, PX-M1UR, PX-S1UR; e-Better DTV02A-1T1S-U, DTV02A-4TS-P, DTV03A-1TU | px4_drv | `/dev/pxmlt5video*`, `/dev/pxmlt8video*`, `/dev/pxm1urvideo*`, `/dev/pxs1urvideo*`, `/dev/isdb2056video*`, `/dev/isdb6014video*`, `/dev/isdbt2071video*` |
-| Earthsoft PT1, PT2, PT3 | built into Linux (`earth-pt1`, `pt3_dvb`) | `/dev/dvb` |
+| Earthsoft PT1, PT2, PT3 | built into Linux (`earth_pt1`, `earth_pt3`) | `/dev/dvb` |
+| Earthsoft PT1, PT2, PT3 with the older pt1_drv / pt3_drv | the out-of-tree driver | `/dev/pt1video*`, `/dev/pt3video*` |
 | PLEX PX-S1UD, PX-Q1UD and other ISDB DVB tuners | built into Linux; some USB sticks need a firmware file (PX-S1UD: `isdbt_rio.inp` in `/lib/firmware`) | `/dev/dvb` |
 
-`ls /dev/px* /dev/isdb* /dev/dvb` on the host shows what the driver created.
+`ls /dev/px* /dev/pt* /dev/isdb* /dev/dvb` on the host shows what the driver created.
 
 **B-CAS card.** Almost all channels, including NHK, are scrambled, so you need a B-CAS card and a smart card reader
-(USB CCID readers such as the NTT Communications SCR3310 or ACS ACR39; the PX-W3U4/Q3U4 have one built in). Pass
+(a USB CCID reader such as the NTT Communications SCR3310 or ACS ACR39). The card slot built into some PLEX
+tuners (PX-W3U4, PX-Q3U4 and others) is not a standard reader and can't be used on Linux. Pass
 `/dev/bus/usb`; pcscd in the container finds the reader and recisdb descrambles with it. The log warns when no
 reader is found.
 

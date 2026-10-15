@@ -23,6 +23,11 @@ for d in /dev/px4video*; do
   i=${d#/dev/px4video}
   if (( i % 4 < 2 )); then add "PX4-S$i" "$d" "BS, CS"; else add "PX4-T$i" "$d" "GR"; fi
 done
+# PT1/PT2/PT3 with the older out-of-tree drivers (pt1_drv, pt3_drv) instead of the kernel's DVB ones: same order.
+for d in /dev/pt1video* /dev/pt3video*; do
+  b=${d#/dev/}; i=${b##*video}; p=${b%video*}; p=${p^^}
+  if (( i % 4 < 2 )); then add "$p-S$i" "$d" "BS, CS"; else add "$p-T$i" "$d" "GR"; fi
+done
 # Tuners that take both terrestrial and satellite on one device file.
 for d in /dev/pxmlt5video* /dev/pxmlt8video* /dev/pxm1urvideo* /dev/isdb2056video* /dev/isdb6014video*; do
   b=${d#/dev/}; add "${b%video*}-${b##*video}" "$d" "GR, BS, CS"
