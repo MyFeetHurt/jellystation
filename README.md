@@ -63,7 +63,8 @@ tuners on another machine (`JELLYSTATION_REMOTE_MIRAKURUN`, see [Settings](#sett
    with the B-CAS card, save the file above as `compose.yaml` and run `docker compose up -d`.
 2. On the first start JellyStation writes `config/mirakurun/tuners.yml` for the tuners it finds and scans the
    channels: terrestrial, cable (CATV), BS and CS, about 30 to 60 minutes. `docker logs jellystation` shows what it
-   found.
+   found. During the scan Mirakurun logs many `respawning because request has not closed` warnings: those are
+   frequencies without a signal, which is normal (all of the cable range when you don't have cable TV).
 3. Open EPGStation at `http://<host>:8888` and add reservations or rules.
 4. Open Jellyfin at `http://<host>:8096` and log in as `admin` with `JELLYSTATION_JELLYFIN_PASSWORD`. The libraries
    and Live TV are already set up. Recordings can also be scheduled in Jellyfin at `http://<host>:8096/EpgStation/Web/`

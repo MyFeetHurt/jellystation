@@ -24,6 +24,14 @@ const SCANS = {
   BS: { type: 'BS', useSubCh: true },
   CS: { type: 'CS' },
 };
+// Shown when a scan starts: Mirakurun logs every frequency without a signal as a warning ("respawning because request
+// has not closed"), which looks like a failure but is how a scan goes.
+const SCAN_NOTES = {
+  GR: 'terrestrial UHF 13-62, about 15 min',
+  CATV: 'cable TV frequencies C13-C63, about 20 min; without cable TV nothing is found here',
+  BS: 'about 5 min',
+  CS: 'about 5 min',
+};
 
 /**
  * Scans what SCAN_FILE lists, writes channels.yml and restarts Mirakurun, then removes SCAN_FILE. Every scan is a dry
@@ -38,7 +46,8 @@ async function scanChannels() {
   }
   const channels = [];
   for (const name of scans) {
-    log(`channel scan ${name} started`);
+    log(`channel scan ${name} started (${SCAN_NOTES[name]}). Frequencies without a signal show up as Mirakurun ` +
+      `warnings "respawning because request has not closed": that is normal during a scan`);
     const q = new URLSearchParams({ ...SCANS[name], dryRun: true, refresh: true });
     const res = await fetch(`${url}/api/config/channels/scan?${q}`, { method: 'PUT', signal: AbortSignal.timeout(3 * 3600 * 1000) });
     const text = await res.text();
