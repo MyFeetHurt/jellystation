@@ -34,18 +34,31 @@ const SCAN_NOTES = {
 };
 
 /**
- * Scans what SCAN_FILE lists, writes channels.yml and restarts Mirakurun, then removes SCAN_FILE. Every scan is a dry
- * run: Mirakurun's scan replaces all channels of its type, so a CATV scan would drop the UHF channels of a GR scan.
- * The results are merged here instead, all enabled. A scan that fails or finds nothing runs again on the next start.
+ * Scans what SCAN_FILE lists: terrestrial, BS and CS first, cable (CATV, slow and often empty) last. Every scan is a
+ * dry run, because Mirakurun's scan replaces all channels of its type (a CATV scan would drop the UHF channels of a GR
+ * scan); the results are merged into channels.yml here, all enabled. After each part that finds channels, channels.yml
+ * is written and Mirakurun restarted, so the channels show up (and EPG starts) while the rest is still being scanned.
+ * Finished parts leave SCAN_FILE, so a restart continues where it stopped. When nothing at all was found (no aerial or
+ * dish connected?), the whole scan runs again on the next start.
  */
+const SCAN_ORDER = ['GR', 'BS', 'CS', 'CATV'];
+
+async function waitMirakurun() {
+  for (;;) {
+    try { await get('/api/version'); return; } catch { await sleep(5000); }
+  }
+}
+
 async function scanChannels() {
   let scans;
   try { scans = fs.readFileSync(SCAN_FILE, 'utf8').split(/\s+/).filter(n => SCANS[n]); } catch { return; }
-  for (;;) {
-    try { await get('/api/version'); break; } catch { await sleep(5000); }
-  }
-  const channels = [];
-  for (const name of scans) {
+  scans.sort((a, b) => SCAN_ORDER.indexOf(a) - SCAN_ORDER.indexOf(b));
+  const all = [...scans];
+  const yaml = require(require.resolve('js-yaml', { paths: ['/opt/mirakurun'] }));
+  const readChannels = () => { try { return yaml.load(fs.readFileSync(CHANNELS_FILE, 'utf8')) || []; } catch { return []; } };
+  await waitMirakurun();
+  while (scans.length) {
+    const name = scans[0];
     log(`channel scan ${name} started (${SCAN_NOTES[name]}). Frequencies without a signal show up as Mirakurun ` +
       `warnings "respawning because request has not closed": that is normal during a scan`);
     const q = new URLSearchParams({ ...SCANS[name], dryRun: true, refresh: true });
@@ -54,17 +67,27 @@ async function scanChannels() {
     if (!res.ok || /Error during scan/.test(text)) { log(`channel scan ${name} failed: ${text.slice(-300)}`); return; }
     const found = text.split('\n').filter(l => l.startsWith('-> {')).map(l => ({ ...JSON.parse(l.slice(3)), isDisabled: false }));
     log(`channel scan ${name} done: ${found.length} channels` + (found.length ? ` (${found.map(c => c.name).slice(0, 8).join(', ')}${found.length > 8 ? ', ...' : ''})` : ''));
-    channels.push(...found);
+    scans.shift();
+    if (found.length) {
+      const key = c => `${c.type}/${c.channel}`;
+      const merged = readChannels().filter(c => !found.some(f => key(f) === key(c)));
+      merged.push(...found);
+      fs.writeFileSync(CHANNELS_FILE, yaml.dump(merged));
+      // Mirakurun reads the channel list on start only (its own restart API needs an INIT_PID it doesn't have here).
+      execFileSync('/command/s6-svc', ['-r', '/run/service/mirakurun']);
+      log(`${merged.length} channels in ${CHANNELS_FILE}, Mirakurun restarted` + (scans.length ? `; still to scan: ${scans.join(', ')}` : ''));
+      await sleep(10000);
+      await waitMirakurun();
+    }
+    fs.writeFileSync(SCAN_FILE, scans.join('\n') + (scans.length ? '\n' : ''));
   }
-  // Nothing found (no aerial or dish connected?): try again on the next start.
-  if (!channels.length) { log('channel scan found no channels; it runs again on the next start'); return; }
-  const yaml = require(require.resolve('js-yaml', { paths: ['/opt/mirakurun'] }));
-  fs.writeFileSync(CHANNELS_FILE, yaml.dump(channels));
+  if (!readChannels().length) {
+    fs.writeFileSync(SCAN_FILE, all.join('\n') + '\n');
+    log('channel scan found no channels; it runs again on the next start');
+    return;
+  }
   fs.unlinkSync(SCAN_FILE);
-  // Mirakurun reads the channel list on start only (its own restart API needs an INIT_PID it doesn't have here).
-  execFileSync('/command/s6-svc', ['-r', '/run/service/mirakurun']);
-  log(`${channels.length} channels written to ${CHANNELS_FILE}, Mirakurun restarted`);
-  await sleep(10000);
+  log('channel scan finished');
 }
 
 /** onReady(serviceCount): called once the channel scan is done and EPG is in (or given up on). */
