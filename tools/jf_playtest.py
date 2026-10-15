@@ -3,7 +3,8 @@
 then ask for every video's PlaybackInfo with a browser-like profile (H.264/AAC in HLS) and fetch the first
 HLS segment. Exit code 1 when any item fails.
 
-usage: jf_playtest.py BASE_URL [--user U --password P] [--library NAME:TYPE:PATH ...]
+usage: jf_playtest.py BASE_URL [--user U --password P] [--library NAME:TYPE:PATH ...] [--live 1.1,101.1]
+With --live, those Live TV channels (by number) are played too, with the time to the first segment.
 """
 import argparse, json, sys, time, urllib.error, urllib.parse, urllib.request
 
@@ -102,6 +103,7 @@ def main():
     ap.add_argument('--password', default='jellystation-dev')
     ap.add_argument('--library', action='append', default=[], help='NAME:TYPE:PATH, e.g. TV:tvshows:/media/TV')
     ap.add_argument('--wait', type=int, default=120, help='seconds to wait for the scan to find videos')
+    ap.add_argument('--live', default='', help='Live TV channel numbers to play, comma separated (e.g. 1.1,101.1)')
     a = ap.parse_args()
     jf = Jf(a.base)
     wait_up(jf)
@@ -114,9 +116,23 @@ def main():
     end = time.time() + a.wait
     while not (items := videos(jf, user_id)) and time.time() < end:
         time.sleep(3)
+    failed = 0
+    if a.live:
+        channels = {c.get('ChannelNumber'): c for c in jf.call('GET', f'/LiveTv/Channels?userId={user_id}&Limit=1000')['Items']}
+        for number in a.live.split(','):
+            ch = channels.get(number)
+            if not ch:
+                print(f'FAIL Live {number}: no such channel'); failed += 1; continue
+            start = time.time()
+            try:
+                result = play(jf, user_id, ch)
+            except Exception as e:
+                result = f'{type(e).__name__}: {e}'
+            ok = result.startswith('OK')
+            failed += not ok
+            print(f'{"PASS" if ok else "FAIL"} Live {number} {ch["Name"]} ({time.time() - start:.0f} s): {result}')
     if not items:
         print('no videos found'); return 1
-    failed = 0
     for item in items:
         try:
             result = play(jf, user_id, item)
