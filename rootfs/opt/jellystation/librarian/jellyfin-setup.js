@@ -9,7 +9,9 @@
  *   - libraries "TV" (tvshows, NFO only: EPG titles match the wrong online shows) and "Movies" (NFO + online metadata),
  *     named テレビ番組 and 映画 when the language is Japanese;
  *   - Live TV: Mirakurun's M3U playlist as tuner and its XMLTV as guide, with the ARIB genres mapped to Jellyfin's
- *     movie/sports/news/kids categories.
+ *     movie/sports/news/kids categories;
+ *   - the EPGStation plugin (copied in by bin/init): pointed at the EPGStation in this container while its URL is
+ *     empty, and its plugin repository added once so Jellyfin keeps it updated.
  */
 'use strict';
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -146,6 +148,30 @@ async function ensureLiveTv() {
   }
 }
 
+const PLUGIN_ID = '509fa560d8d947619d700151f18660cf';
+const PLUGIN_REPO = { Name: 'EPGStation', Url: 'https://raw.githubusercontent.com/MyFeetHurt/jellyfin-plugin-epgstation/main/manifest.json', Enabled: true };
+
+async function ensureEpgStationPlugin(stateDir) {
+  if (/^(0|false|no)$/i.test(env.JELLYSTATION_EPGSTATION_PLUGIN || '')) return;
+  const plugin = (await call('GET', '/Plugins')).find(p => p.Id.replace(/-/g, '') === PLUGIN_ID);
+  if (!plugin) return; // not installed, or uninstalled by the user
+  const conf = await call('GET', `/Plugins/${PLUGIN_ID}/Configuration`);
+  if (!conf.EpgStationUrl) {
+    conf.EpgStationUrl = 'http://127.0.0.1:8888';
+    await call('POST', `/Plugins/${PLUGIN_ID}/Configuration`, conf);
+    log(`EPGStation plugin ${plugin.Version}: EPGStation ${conf.EpgStationUrl}`);
+  }
+  const marker = path.join(stateDir, 'epgstation-plugin-repo');
+  if (!fs.existsSync(marker)) {
+    const repos = await call('GET', '/Repositories');
+    if (!repos.some(r => r.Url === PLUGIN_REPO.Url)) {
+      await call('POST', '/Repositories', [...repos, PLUGIN_REPO]);
+      log('plugin repository: EPGStation');
+    }
+    fs.writeFileSync(marker, PLUGIN_REPO.Url + '\n');
+  }
+}
+
 async function loadKey(cfg) {
   base = cfg.jellyfin;
   keyFile = path.join(cfg.stateDir, 'jellyfin.key');
@@ -162,6 +188,7 @@ async function run(cfg) {
   await ensureServerName();
   await ensureLibraries(cfg);
   await ensureLiveTv();
+  await ensureEpgStationPlugin(cfg.stateDir);
 }
 
 async function refreshLibrary() {

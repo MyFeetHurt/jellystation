@@ -15,6 +15,8 @@ Full video (1:21): [jellystation-demo.mp4](https://cdn.jsdelivr.net/gh/MyFeetHur
   and its EPG (XMLTV) is the programme guide. Movies, sports, news and kids programmes are tagged from the ARIB genres.
 - ARIB captions become subtitle files next to each recording (`.ja.srt`, optionally `.ja.ass`), so every Jellyfin
   client can show them.
+- Schedule recordings without leaving Jellyfin: the [EPGStation plugin](https://github.com/MyFeetHurt/jellyfin-plugin-epgstation)
+  is installed and connected to the bundled EPGStation (guide, search, reservations and rules, for every user).
 - Includes a fix for Jellyfin 12, which otherwise can't play Japanese broadcast TS (see [Notes](#notes)).
 
 | Port  | Service    |
@@ -60,7 +62,8 @@ services:
    found.
 3. Open EPGStation at `http://<host>:8888` and add reservations or rules.
 4. Open Jellyfin at `http://<host>:8096` and log in as `admin` with `JELLYSTATION_JELLYFIN_PASSWORD`. The libraries
-   and Live TV are already set up.
+   and Live TV are already set up. Recordings can also be scheduled in Jellyfin at `http://<host>:8096/EpgStation/Web/`
+   (administrators also find it under Dashboard → Plugins; add it to the home screen or bookmark it for other users).
 
 ## Tuners
 
@@ -129,6 +132,7 @@ Config files are only written when they don't exist, so your changes are kept.
 | `JELLYSTATION_TV_LIBRARY_NAME` / `JELLYSTATION_MOVIE_LIBRARY_NAME` | `テレビ番組` / `映画` (`TV` / `Movies` in other languages) | names of the libraries created on the first start |
 | `JELLYSTATION_JELLYFIN_SETUP` | `true` | `false`: don't touch Jellyfin's setup (the library refresh still needs `/config/jellystation/jellyfin.key`) |
 | `JELLYSTATION_LIVETV` | `true` | add Mirakurun as Jellyfin Live TV tuner and guide |
+| `JELLYSTATION_EPGSTATION_PLUGIN` | `true` | install the Jellyfin EPGStation plugin on the first start and connect it to the bundled EPGStation; its repository is added so Jellyfin updates it. Uninstalling it in Jellyfin is permanent |
 | `JELLYSTATION_LIVETV_DUPLICATES` | `false` | `true`: also list subchannels that only simulcast another channel (MBS2, MBS3, ...) |
 | `JELLYSTATION_TV_ONLINE_METADATA` | `false` | `true`: let Jellyfin look up TV shows online (EPG titles often match the wrong show) |
 | `JELLYSTATION_SUBTITLES` | `srt` | ARIB captions as sidecar files: `srt` (plain text, any client), `ass` (keeps position and colour; Jellyfin's web player needs a Japanese fallback font for it), `both`, or `false` |
@@ -187,4 +191,5 @@ EPGStation (programme data and the TS) into a test stack. `dev/compose.local.yam
 [Mirakurun](https://github.com/Chinachu/Mirakurun), [EPGStation](https://github.com/l3tnun/EPGStation),
 [Jellyfin](https://jellyfin.org), [recisdb](https://github.com/kazuki0824/recisdb-rs),
 [s6-overlay](https://github.com/just-containers/s6-overlay). EPG naming is ported from
-[epgXport](https://github.com/MyFeetHurt/epgXport).
+[epgXport](https://github.com/MyFeetHurt/epgXport); scheduling in Jellyfin is
+[jellyfin-plugin-epgstation](https://github.com/MyFeetHurt/jellyfin-plugin-epgstation).

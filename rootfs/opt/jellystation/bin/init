@@ -72,3 +72,14 @@ for f in enc.js operatorLogConfig.yml epgUpdaterLogConfig.yml serviceLogConfig.y
   [ -f "/config/epgstation/config/$f" ] || cp "$D/epgstation/$f" "/config/epgstation/config/$f"
 done
 cp "$D/epgstation/config.yml.template" /config/epgstation/config/config.yml.template # EPGStation's reference copy
+
+# --- Jellyfin ---
+# The EPGStation plugin (schedule recordings from Jellyfin), copied in once: when it is uninstalled it stays so.
+P=/opt/jellystation/jellyfin-plugins/EPGStation
+if ! [[ ${JELLYSTATION_EPGSTATION_PLUGIN:-true} =~ ^(0|false|no)$ ]] && [ -d "$P" ] && [ ! -e /config/jellystation/epgstation-plugin ]; then
+  v=$(jq -r .version "$P/meta.json")
+  mkdir -p /config/jellyfin/plugins
+  ls -d /config/jellyfin/plugins/EPGStation_* >/dev/null 2>&1 || cp -r "$P" "/config/jellyfin/plugins/EPGStation_$v"
+  echo "$v" > /config/jellystation/epgstation-plugin
+  echo "jellystation: Jellyfin EPGStation plugin $v installed"
+fi

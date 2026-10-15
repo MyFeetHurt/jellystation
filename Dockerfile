@@ -52,11 +52,20 @@ ARG RECISDB_VERSION=1.3.0
 ARG TARGETARCH
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq dvb-tools pcscd libccid pcsc-tools libpcsclite1 tzdata ca-certificates \
+    && apt-get install -y --no-install-recommends jq unzip dvb-tools pcscd libccid pcsc-tools libpcsclite1 tzdata ca-certificates \
     && curl -fsSL -o /tmp/recisdb.deb \
        "https://github.com/kazuki0824/recisdb-rs/releases/download/${RECISDB_VERSION}/recisdb_${RECISDB_VERSION}-1_${TARGETARCH:-amd64}.deb" \
     && apt-get install -y --no-install-recommends /tmp/recisdb.deb \
     && rm -rf /tmp/recisdb.deb /var/lib/apt/lists/*
+
+# Jellyfin plugin for EPGStation reservations (https://github.com/MyFeetHurt/jellyfin-plugin-epgstation); the build
+# for Jellyfin 12 ends in .12 (10.11: .11). Installed into Jellyfin on the first start (bin/init).
+ARG EPGSTATION_PLUGIN_VERSION=0.2.0
+ARG EPGSTATION_PLUGIN_ABI=12
+RUN mkdir -p /opt/jellystation/jellyfin-plugins/EPGStation \
+    && curl -fsSL -o /tmp/plugin.zip "https://github.com/MyFeetHurt/jellyfin-plugin-epgstation/releases/download/v${EPGSTATION_PLUGIN_VERSION}/epgstation_${EPGSTATION_PLUGIN_VERSION}.${EPGSTATION_PLUGIN_ABI}.zip" \
+    && unzip -q /tmp/plugin.zip -d /opt/jellystation/jellyfin-plugins/EPGStation \
+    && rm /tmp/plugin.zip
 
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=build /s6/ /
