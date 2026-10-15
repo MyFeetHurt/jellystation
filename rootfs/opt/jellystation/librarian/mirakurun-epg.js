@@ -111,6 +111,20 @@ async function run(onReady) {
   }
   // Jellyfin read Mirakurun's playlist when it was still empty (first start): refresh its channels and guide now.
   if (onReady) await onReady(services.length);
+  if (!missing || !onReady) return;
+  // EPG for all channels takes longer than the wait above. Refresh Jellyfin again once it is in: the Live TV playlist
+  // leaves out simulcast subchannels only when their programmes are known. Some services (one-seg) never get EPG, so
+  // "in" means: the number of services with EPG has not grown for 10 minutes (at most 3 hours).
+  let ready = services.filter(s => s.epgReady).length;
+  for (let still = 0, i = 0; still < 20 && i < 360; i++) {
+    await sleep(30000);
+    let now;
+    try { now = (await get('/api/services')).filter(s => s.epgReady).length; } catch { continue; }
+    still = now > ready ? 0 : still + 1;
+    ready = Math.max(ready, now);
+  }
+  log(`EPG in for ${ready} of ${services.length} services: refreshing Jellyfin again`);
+  await onReady(services.length);
 }
 
 module.exports = { run };
