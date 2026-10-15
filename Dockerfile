@@ -31,13 +31,14 @@ RUN npm install --no-save --ignore-scripts \
 WORKDIR /opt/mirakurun
 RUN npm install --omit=dev --no-save mirakurun@${MIRAKURUN_VERSION}
 
-# ffmpeg with ARIB caption decoders (libaribcaption), only for writing caption files (Jellyfin keeps jellyfin-ffmpeg)
-ARG FFMPEG_ARIB_BUILD=autobuild-2026-09-28-13-06
-ARG FFMPEG_ARIB_VERSION=n8.1.3-6-gff48edd8b2
+# ffmpeg with ARIB caption decoders (libaribcaption), only for writing caption files (Jellyfin keeps jellyfin-ffmpeg).
+# BtbN's rolling "latest" build of the branch: its dated autobuilds are deleted after a few weeks.
+ARG FFMPEG_ARIB_BRANCH=8.1
 RUN arch=$(case "${TARGETARCH:-amd64}" in arm64) echo linuxarm64;; *) echo linux64;; esac) \
     && mkdir -p /opt/ffmpeg-arib/bin \
-    && curl -fsSL "https://github.com/BtbN/FFmpeg-Builds/releases/download/${FFMPEG_ARIB_BUILD}/ffmpeg-${FFMPEG_ARIB_VERSION}-${arch}-gpl-8.1.tar.xz" \
-       | tar -xJ -C /opt/ffmpeg-arib --strip-components=1 --wildcards '*/bin/ffmpeg' '*/LICENSE.txt'
+    && curl -fsSL "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n${FFMPEG_ARIB_BRANCH}-latest-${arch}-gpl-${FFMPEG_ARIB_BRANCH}.tar.xz" \
+       | tar -xJ -C /opt/ffmpeg-arib --strip-components=1 --wildcards '*/bin/ffmpeg' '*/LICENSE.txt' \
+    && /opt/ffmpeg-arib/bin/ffmpeg -hide_banner -decoders | grep -q libaribcaption
 
 RUN mkdir /s6 && arch=$(case "${TARGETARCH:-amd64}" in arm64) echo aarch64;; *) echo x86_64;; esac) \
     && for f in noarch $arch; do \
