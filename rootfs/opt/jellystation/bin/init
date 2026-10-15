@@ -39,7 +39,8 @@ if [ ! -f /config/mirakurun/tuners.yml ]; then
   # Local tuners: generated from the devices passed to the container. A new channel list is scanned once Mirakurun
   # runs (the librarian does that, see channel-scan).
   if /opt/jellystation/bin/jellystation-tuners --write; then
-    if [ ! -f /config/mirakurun/channels.yml ]; then
+    # Scan when there is no channel list yet, or only the empty one written below when no devices were found.
+    if [ ! -f /config/mirakurun/channels.yml ] || [ "$(tr -d '[:space:]' < /config/mirakurun/channels.yml)" = '[]' ]; then
       echo '[]' > /config/mirakurun/channels.yml
       # CATV: cable TV's terrestrial channels on cable frequencies; JELLYSTATION_CATV=false skips that scan.
       { grep -q 'types: \[.*GR' /config/mirakurun/tuners.yml && echo GR \
@@ -49,6 +50,7 @@ if [ ! -f /config/mirakurun/tuners.yml ]; then
     fi
   else
     cp "$D/mirakurun/tuners.yml" /config/mirakurun/tuners.yml
+    [ -f /config/mirakurun/channels.yml ] || echo '[]' > /config/mirakurun/channels.yml
     echo "jellystation: no tuner devices found. Pass them to the container (see README), delete config/mirakurun/tuners.yml" \
          "and restart, or set JELLYSTATION_REMOTE_MIRAKURUN"
   fi
