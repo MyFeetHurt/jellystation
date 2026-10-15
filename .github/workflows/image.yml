@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test tests/
+      - run: node --test tests/*.test.js
       - run: bash -n rootfs/opt/jellystation/bin/* && sh -n rootfs/opt/jellystation/ffmpeg/ffmpeg rootfs/opt/jellystation/ffmpeg/ffprobe
 
   image:

@@ -220,7 +220,7 @@ docker build -t jellystation .
 
 ## 開発
 
-`dev/compose.yaml` は別の Mirakurun をリモートチューナーとして使う構成です。`node --test tests/` で librarian の
+`dev/compose.yaml` は別の Mirakurun をリモートチューナーとして使う構成です。`node --test tests/*.test.js` で librarian の
 テスト。`tools/jf_playtest.py` は Jellyfin がすべての動画をトランスコードできるか確認し、`tools/e2e_record.py` は
 短い番組を 1 つ録画してライブラリに入るか確認します。`tools/epgs_import.py` は別の EPGStation の録画(番組情報と
 TS)をテスト環境にコピーします。`dev/compose.local.yaml` はローカルチューナーで 2 つ目の構成を動かします。

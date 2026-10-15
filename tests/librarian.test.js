@@ -1,4 +1,4 @@
-// node --test tests/ — librarian against a fake EPGStation API and temporary directories.
+// node --test tests/*.test.js — librarian against a fake EPGStation API and temporary directories.
 'use strict';
 const test = require('node:test'), assert = require('node:assert');
 const fs = require('fs'), os = require('os'), path = require('path'), http = require('http');

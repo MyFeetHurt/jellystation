@@ -216,7 +216,7 @@ docker build -t jellystation .
 
 ## Development
 
-`dev/compose.yaml` runs the stack with another Mirakurun as remote tuners. `node --test tests/` runs the librarian tests.
+`dev/compose.yaml` runs the stack with another Mirakurun as remote tuners. `node --test tests/*.test.js` runs the librarian tests.
 `tools/jf_playtest.py` checks that Jellyfin can transcode every video, and `tools/e2e_record.py` records one short
 programme and checks that it reaches the library. `tools/epgs_import.py` copies finished recordings from another
 EPGStation (programme data and the TS) into a test stack. `dev/compose.local.yaml` runs a second stack with local tuners.
