@@ -28,8 +28,8 @@ const SCANS = {
 // has not closed"), which looks like a failure but is how a scan goes.
 const SCAN_NOTES = {
   GR: 'terrestrial UHF 13-62, about 15 min',
-  CATV: 'cable TV frequencies C13-C63, about 20 min; without cable TV nothing is found here',
-  BS: 'about 5 min',
+  CATV: 'cable TV frequencies C13-C63, about 15 min; without cable TV nothing is found here',
+  BS: 'about 25 min',
   CS: 'about 5 min',
 };
 
