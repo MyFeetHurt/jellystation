@@ -5,7 +5,7 @@
 # ///
 """Records the README demo from a running JellyStation (Chromium with H.264, e.g. Arch's /usr/bin/chromium).
 
-  demo.py OUT_DIR [--host 192.168.0.137] [--jellyfin 18096] [--epgstation 18888] [--user admin --password ...]
+  demo.py OUT_DIR [--host HOST] [--jellyfin 18096] [--epgstation 18888] [--user admin --password ...]
   then:  make_video.sh OUT_DIR media/
 
 Uses what is in the stack: the series, episode, film and channel below (change them for another stack). Only free
@@ -96,7 +96,7 @@ class Jf:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('out')
-    ap.add_argument('--host', default='192.168.0.137')
+    ap.add_argument('--host', default='localhost')
     ap.add_argument('--jellyfin', default='18096')
     ap.add_argument('--epgstation', default='18888')
     ap.add_argument('--user', default='admin')

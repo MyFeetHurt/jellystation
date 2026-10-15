@@ -1,3 +1,4 @@
 dev/data/
 __pycache__/
 dev/data-local/
+dev/.env

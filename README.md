@@ -30,7 +30,7 @@ Full video (1:21): [jellystation-demo.mp4](https://cdn.jsdelivr.net/gh/MyFeetHur
 ```yaml
 services:
   jellystation:
-    image: jellystation:latest
+    image: ghcr.io/myfeethurt/jellystation:latest
     container_name: jellystation
     restart: unless-stopped
     cap_add:
@@ -55,8 +55,12 @@ services:
       - /srv/tv:/media # recordings and the Jellyfin library: keep them on one filesystem (hardlinks)
 ```
 
+JellyStation runs on Linux (x86-64) with [Docker](https://docs.docker.com/engine/install/). Tuners and the card
+reader must be visible to the container, which Docker Desktop on Windows and macOS can't do; there it only works with
+tuners on another machine (`JELLYSTATION_REMOTE_MIRAKURUN`, see [Settings](#settings)).
+
 1. Install the tuner driver on the host if your tuner needs one (see [Tuners](#tuners)), plug in the card reader
-   with the B-CAS card, and start the container.
+   with the B-CAS card, save the file above as `compose.yaml` and run `docker compose up -d`.
 2. On the first start JellyStation writes `config/mirakurun/tuners.yml` for the tuners it finds and scans the
    channels: terrestrial, cable (CATV), BS and CS, about 30 to 60 minutes. `docker logs jellystation` shows what it
    found.
@@ -150,6 +154,9 @@ Config files are only written when they don't exist, so your changes are kept.
 Mirakurun's own Docker variables (`LOG_LEVEL`, `EPG_GATHERING_JOB_SCHEDULE`, `LOGO_DATA_INTERVAL`, ...) work as usual.
 
 ## Build
+
+The image on ghcr.io is built from this repository by GitHub Actions (`latest` = main, `X.Y.Z` = releases). To build
+it yourself:
 
 ```sh
 docker build -t jellystation .

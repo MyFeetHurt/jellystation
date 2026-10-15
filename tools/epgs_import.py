@@ -8,7 +8,7 @@ whatever the source called it. The source and its files are only read. Recording
 and start time) are skipped.
 
 usage: epgs_import.py SOURCE_URL SOURCE_DIR TARGET_URL ID [ID ...]
-   e.g. epgs_import.py http://192.168.0.202:8888 /mnt/Media1/epgs-kodi-dev/recorded http://192.168.0.137:18888 102 129
+   e.g. epgs_import.py http://old-server:8888 /srv/old/recorded http://localhost:8888 102 129
 """
 import datetime, json, os, re, subprocess, sys, tempfile, urllib.request
 

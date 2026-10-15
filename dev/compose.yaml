@@ -1,4 +1,4 @@
-# Development stack on the VM tvstack-dev (192.168.0.137): tuners come from the production Mirakurun (read-only use, 2 slots).
+# Development stack with tuners from another Mirakurun (remote mode): set JELLYSTATION_REMOTE_MIRAKURUN to its host:port.
 services:
   jellystation:
     build: ..
@@ -8,7 +8,7 @@ services:
     cap_add:
       - SYS_NICE # Mirakurun raises its own priority
     environment:
-      JELLYSTATION_REMOTE_MIRAKURUN: 192.168.0.118:40772
+      JELLYSTATION_REMOTE_MIRAKURUN: ${REMOTE_MIRAKURUN:-192.168.1.10:40772}
       JELLYSTATION_REMOTE_TUNERS: "2"
       # production EPGStation recordings win tuners over dev ones
       JELLYSTATION_EPGSTATION_REC_PRIORITY: "1"
