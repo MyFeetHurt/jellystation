@@ -211,3 +211,9 @@ EPGStation (programme data and the TS) into a test stack. `dev/compose.local.yam
 [s6-overlay](https://github.com/just-containers/s6-overlay). EPG naming is ported from
 [epgXport](https://github.com/MyFeetHurt/epgXport); scheduling in Jellyfin is
 [jellyfin-plugin-epgstation](https://github.com/MyFeetHurt/jellyfin-plugin-epgstation).
+
+## License
+
+MIT (JellyStation's own scripts and configuration). The image also contains Mirakurun (Apache-2.0), EPGStation (MIT),
+Jellyfin (GPL-2.0), recisdb (GPL-3.0), FFmpeg (GPL), s6-overlay (ISC) and the EPGStation plugin (GPL-3.0), each under
+its own license.
