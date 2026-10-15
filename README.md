@@ -73,6 +73,20 @@ tuners on another machine (`JELLYSTATION_REMOTE_MIRAKURUN`, see [Settings](#sett
    and Live TV are already set up. Recordings can also be scheduled in Jellyfin at `http://<host>:8096/EpgStation/Web/`
    (administrators also find it under Dashboard → Plugins; add it to the home screen or bookmark it for other users).
 
+## NAS and other systems
+
+- **TrueNAS SCALE / Community Edition** (tested with 25.10): create datasets for the config, cache and media, then
+  Apps → Discover Apps → ⋮ → Install via YAML and paste the compose file with those paths (`/mnt/<pool>/...`).
+  TrueNAS can't install extra kernel drivers, so only tuners whose driver is part of Linux work there: PT1/PT2/PT3
+  and PX-S1UD (tested with a PT3). For px4_drv tuners (PX-W3U4, PX-Q3U4, ...), see the tuner server below.
+- **OpenMediaVault** (tested with 8): it is Debian underneath, so install the tuner driver as in [Tuners](#tuners).
+  Then, with the Compose plugin from omv-extras, add a file with the compose above; `CHANGE_TO_COMPOSE_DATA_PATH`
+  in the volumes points at the plugin's data folder.
+- **Raspberry Pi, other ARM boards, Windows and macOS**: the image is for x86-64 Linux. Use the other machine as a
+  **tuner server** instead: run Mirakurun there with the tuners and the card reader, and start JellyStation on an
+  x86-64 Linux machine or NAS with `JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772`. (A Pi could not convert TV
+  for browsers in Jellyfin smoothly anyway.)
+
 ## Tuners
 
 Tuner drivers are kernel modules, so they are installed on the **host**, not in the container. JellyStation tunes

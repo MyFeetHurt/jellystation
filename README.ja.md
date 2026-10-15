@@ -73,6 +73,20 @@ JellyStation は Linux(x86-64)と [Docker](https://docs.docker.com/engine/instal
    ライブ TV は設定済みです。録画予約は Jellyfin の `http://<host>:8096/EpgStation/Web/` でもできます(管理者は
    ダッシュボード → プラグインからも。ほかのユーザーにはホーム画面に追加するかブックマークしてもらってください)。
 
+## NAS とほかのシステム
+
+- **TrueNAS SCALE / Community Edition**(25.10 で確認): 設定・キャッシュ・メディア用のデータセットを作り、
+  アプリ → Discover Apps → ⋮ → Install via YAML で、そのパス(`/mnt/<プール>/...`)にした compose を貼り付けます。
+  TrueNAS ではカーネルドライバーを追加できないので、使えるのは Linux 本体にドライバーがあるチューナーだけです:
+  PT1/PT2/PT3、PX-S1UD(PT3 で確認)。px4_drv のチューナー(PX-W3U4、PX-Q3U4 など)は下のチューナーサーバーを。
+- **OpenMediaVault**(8 で確認): 中身は Debian なので、[チューナー](#チューナー) のとおりドライバーを入れます。
+  omv-extras の Compose プラグインで上の compose をファイルとして追加します。volumes の
+  `CHANGE_TO_COMPOSE_DATA_PATH` はプラグインのデータ用フォルダーになります。
+- **Raspberry Pi などの ARM、Windows、macOS**: イメージは x86-64 の Linux 用です。そのマシンは **チューナーサーバー**
+  にしてください: チューナーとカードリーダーをつないで Mirakurun を動かし、JellyStation は x86-64 の Linux か NAS で
+  `JELLYSTATION_REMOTE_MIRAKURUN=<チューナーサーバー>:40772` を付けて起動します(Pi では Jellyfin がブラウザー向けに
+  テレビをなめらかに変換できません)。
+
 ## チューナー
 
 チューナーのドライバーはカーネルモジュールなので、コンテナではなく **ホスト** に入れます。JellyStation は
