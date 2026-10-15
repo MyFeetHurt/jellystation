@@ -85,6 +85,16 @@ kinds of Linux tuner device:
 
 `ls /dev/px* /dev/pt* /dev/isdb* /dev/dvb` on the host shows what the driver created.
 
+px4_drv (and other out-of-tree drivers) are built by DKMS, which needs the kernel headers: install them before the
+driver (`sudo apt install linux-headers-amd64` on Debian, `linux-headers-generic` on Ubuntu), or run
+`sudo dkms autoinstall` afterwards. `sudo dkms status` should say `installed`, not just `added`.
+
+With **Secure Boot** on, the kernel refuses the self-built module (`modprobe: ERROR: could not insert 'px4_drv': Key
+was rejected by service`). Enroll the DKMS signing key once: `sudo mokutil --import /var/lib/dkms/mok.pub` (choose a
+one-time password), reboot, and on the blue "Shim UEFI key management" screen press a key at once (it waits only a few
+seconds), then Enroll MOK → Continue → Yes → the password → Reboot. Or turn Secure Boot off in the firmware settings.
+Drivers that are part of Linux (PT1/PT2/PT3, PX-S1UD) are signed and need neither.
+
 **B-CAS card.** Almost all channels, including NHK, are scrambled, so you need a B-CAS card and a smart card reader
 (a USB CCID reader such as the NTT Communications SCR3310 or ACS ACR39). The card slot built into some PLEX
 tuners (PX-W3U4, PX-Q3U4 and others) is not a standard reader and can't be used on Linux. Pass
