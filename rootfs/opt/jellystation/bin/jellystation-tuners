@@ -41,9 +41,10 @@ for d in /dev/pxs1urvideo* /dev/isdbt2071video*; do
 done
 # DVB adapters (kernel drivers). A frontend that supports both systems is used for both.
 for a in /dev/dvb/adapter*; do
+  # --devices: by name only. With SELinux the host's device nodes can be listed but not stat()ed ([ -e ] fails).
+  if [ "${1:-}" = --devices ]; then f=("$a"/frontend*); (( ${#f[@]} )) && { devices+=(/dev/dvb); break; }; continue; fi
   [ -e "$a/frontend0" ] || continue
   i=${a#/dev/dvb/adapter}
-  if [ "${1:-}" = --devices ]; then devices+=(/dev/dvb); break; fi
   info=$(dvb-fe-tool -a "$i" 2>&1 || true)
   t=()
   [[ $info == *ISDBT* ]] && t+=(GR)
