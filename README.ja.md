@@ -218,8 +218,66 @@ JellyStation のフォルダー(`cd ~/jellystation`)で実行します。
   (Windows、macOS)はチューナーやカードリーダーをコンテナに渡せません。代わりに **チューナーサーバー**
   (チューナーとカードリーダーをつないで Mirakurun を動かすマシン)を使います。JellyStation はそのチューナーを
   ネットワーク越しに使います: `JELLYSTATION_REMOTE_MIRAKURUN=<チューナーサーバー>:40772`([設定](#設定) と
-  [補足](#補足) を参照)。
-  WINDOWS_SECTION_PLACEHOLDER
+  [補足](#補足) を参照)。Windows は [Windows](#windowsdocker-desktop) を参照。
+
+## Windows(Docker Desktop)
+
+Windows 10/11 の Docker Desktop で動きます。チューナーは **チューナーサーバー**(チューナーと B-CAS カードを
+つないで Mirakurun を動かしている、同じネットワークの別の PC や NAS)のものを使います(Windows ではチューナーや
+カードリーダーをコンテナに渡せません)。
+
+1. [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) をインストール(「Use WSL 2」は
+   そのまま)して再起動。Docker Desktop が **WSL not installed** と言ったら、スタートを右クリック →「ターミナル
+   (管理者)」で `wsl --install` を実行して、もう一度再起動します。
+2. スタートメニューから Docker Desktop を起動し、**Engine running** になるまで待ちます。Settings → General の
+   **Start Docker Desktop when you sign in to your computer** をオンに。
+3. フォルダーを作り(例 `C:\Users\<名前>\jellystation`)、メモ帳に下の内容を貼り付け、チューナーサーバーの
+   アドレスとパスワードを書き換えて、そのフォルダーに `compose.yaml` という名前で保存します。**ファイルの種類は
+   「すべてのファイル」、文字コードは UTF-8**(そうしないと `compose.yaml.txt` になります):
+
+```yaml
+services:
+  jellystation:
+    image: ghcr.io/myfeethurt/jellystation:latest
+    container_name: jellystation
+    restart: unless-stopped
+    stop_grace_period: 30s
+    cap_add:
+      - SYS_NICE
+    environment:
+      TZ: Asia/Tokyo
+      JELLYSTATION_JELLYFIN_PASSWORD: change-me # Jellyfin login admin / this
+      JELLYSTATION_REMOTE_MIRAKURUN: "192.168.1.10:40772" # your tuner server
+      JELLYSTATION_REMOTE_TUNERS: "2"
+    ports:
+      - "8096:8096"
+      - "8888:8888"
+      - "40772:40772"
+    volumes:
+      - config:/config # settings and databases, inside Docker (fast)
+      - cache:/cache
+      - ./media:/media # recordings, in this folder; or a bigger drive: D:\TV:/media
+volumes:
+  config:
+  cache:
+```
+
+   Windows では `devices:` は書きません。設定とデータベースは Docker 自身の保存場所(`config`、`cache`)に
+   置きます。Windows のフォルダーに置くと EPGStation のデータベースが何分もロックされ、Jellyfin の番組表の
+   読み込みに 1 時間近くかかります。録画は `media` フォルダーに入り、エクスプローラーで見られます。`/srv/tv` の
+   ような Linux のパスは使わないでください: Docker Desktop の仮想マシンのメモリー上に置かれ、再起動で消えます。
+4. フォルダーのアドレスバーに `powershell` と入力して Enter、`docker compose up -d`(Windows では `sudo` は
+   不要)。「Docker Desktop Backend にネットワークへのアクセスを許可しますか」と聞かれたら **許可** を
+   (しないとテレビやスマホから Jellyfin に届きません)。
+5. 初回は約 20 分かかります(チューナーサーバーからチャンネル一覧、それから番組表)。`docker compose logs -f` で
+   様子を見られます。
+6. その PC では `http://localhost:8096`、ほかの機器からは `http://<PC のアドレス>:8096`(`ipconfig` の
+   IPv4 アドレス)。
+
+JellyStation は Docker Desktop が動いている間、つまり Windows にサインインしていて PC がスリープしていない間
+だけ動きます。夜中も録画するならスリープを「なし」に(設定 → システム → 電源)。`media\library` の録画は
+`media\recorded` のハードリンクです。エクスプローラーには両方見えますが、ディスクは 1 回分しか使いません。
+Docker には PC のメモリーの半分が割り当てられます(8 GB の PC で動作確認)。
 
 ## 外出先から見る(Tailscale)
 
