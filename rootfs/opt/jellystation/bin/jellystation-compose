@@ -1,0 +1,84 @@
+#!/bin/bash
+# Writes a compose.yaml for this machine: the tuner devices and card reader it finds, a random Jellyfin password and
+# the data folders next to the file. Run it from the folder that will hold JellyStation (see README):
+#   sudo docker run --rm -v /dev:/dev:ro --entrypoint jellystation-compose ghcr.io/myfeethurt/jellystation > compose.yaml
+# The host's /dev is only listed, never opened. Settings (environment, -e NAME=value):
+#   JELLYSTATION_IMAGE   image to put in the file (default ghcr.io/myfeethurt/jellystation:latest)
+#   JELLYSTATION_MEDIA   host folder for recordings and the library (default ./media)
+#   JELLYSTATION_REMOTE_MIRAKURUN  host:port of a tuner server instead of local tuners
+set -uo pipefail
+image=${JELLYSTATION_IMAGE:-ghcr.io/myfeethurt/jellystation:latest}
+media=${JELLYSTATION_MEDIA:-./media}
+remote=${JELLYSTATION_REMOTE_MIRAKURUN:-}
+say() { echo "$@" >&2; }
+
+if [ -t 1 ]; then
+  say "jellystation-compose prints a compose file: save it with '> compose.yaml' at the end of the command."
+fi
+if [ ! -e /dev/bus/usb ] && [ -z "$remote" ]; then
+  say "Note: the host's /dev is not visible here. Run it with -v /dev:/dev:ro (see README), or the file gets no devices."
+fi
+
+mapfile -t devices < <(/opt/jellystation/bin/jellystation-tuners --devices 2>/dev/null)
+reader=no
+for c in /sys/bus/usb/devices/*/bInterfaceClass; do
+  [ "$(cat "$c" 2>/dev/null)" = 0b ] && reader=yes
+done
+# SELinux (Fedora's docker package, RHEL and its relatives): containers run as container_t and may only use folders
+# labelled for them; ":z" does that. (Docker CE leaves SELinux labels off: no container_t, no ":z" needed.)
+z=
+tr -d '\0' < /proc/self/attr/current 2>/dev/null | grep -q ':container_t:' && z=:z
+password=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 12)
+
+{
+  echo "# JellyStation, written by jellystation-compose on $(date +%F). Edit as you like."
+  echo "#   start:  sudo docker compose up -d        logs: sudo docker compose logs -f   (Ctrl+C stops watching)"
+  echo "#   stop:   sudo docker compose down          update: sudo docker compose pull && sudo docker compose up -d"
+  echo "services:"
+  echo "  jellystation:"
+  echo "    image: $image"
+  echo "    container_name: jellystation"
+  echo "    restart: unless-stopped"
+  echo "    cap_add:"
+  echo "      - SYS_NICE # Mirakurun raises its own priority"
+  echo "    environment:"
+  echo "      TZ: Asia/Tokyo"
+  echo "      JELLYSTATION_JELLYFIN_PASSWORD: \"$password\" # Jellyfin login: admin / this password (first start only)"
+  if [ -n "$remote" ]; then
+    echo "      JELLYSTATION_REMOTE_MIRAKURUN: \"$remote\" # tuner server; its Mirakurun has the tuners and the card"
+  else
+    if [ ${#devices[@]} -eq 0 ]; then
+      echo "    # No tuner was found. Install the driver and connect the tuner (README, step 2), then run"
+      echo "    # jellystation-compose again, or add the devices here by hand, e.g. - /dev/px4video0:/dev/px4video0"
+    fi
+    echo "    devices:"
+    for d in "${devices[@]}"; do echo "      - $d:$d"; done
+    if [ $reader = yes ]; then
+      echo "      - /dev/bus/usb:/dev/bus/usb # B-CAS card reader"
+    else
+      echo "      - /dev/bus/usb:/dev/bus/usb # B-CAS card reader (none was found: connect it before the first start)"
+    fi
+  fi
+  [ -e /dev/dri ] && echo "      # - /dev/dri:/dev/dri # Intel/AMD GPU: turn on hardware transcoding in Jellyfin's dashboard afterwards"
+  echo "    ports:"
+  echo "      - \"8096:8096\" # Jellyfin"
+  echo "      - \"8888:8888\" # EPGStation"
+  echo "      - \"40772:40772\" # Mirakurun"
+  echo "    volumes:"
+  echo "      - ./config:/config$z # settings and databases"
+  echo "      - ./cache:/cache$z"
+  echo "      - $media:/media$z # recordings and the Jellyfin library (one disk: they are hardlinked). Bigger disk: /path/to/disk:/media"
+}
+
+say ""
+if [ -n "$remote" ]; then
+  say "tuners: from the Mirakurun at $remote"
+elif [ ${#devices[@]} -eq 0 ]; then
+  say "tuners: NONE found. Is the driver installed and the tuner connected? (README, step 2)"
+else
+  say "tuners: ${devices[*]}"
+  if [ $reader = yes ]; then say "card reader: found"; else say "card reader: NOT found (without it recordings stay scrambled)"; fi
+fi
+[ -n "$z" ] && say "SELinux is on: the folders get ':z' so the container may use them"
+say "Jellyfin login: admin / $password"
+say "next: sudo docker compose up -d"

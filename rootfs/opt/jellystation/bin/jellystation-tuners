@@ -2,17 +2,20 @@
 # Finds the tuner devices passed to the container and prints a Mirakurun tuners.yml for them.
 #   jellystation-tuners           print the result (and what was found) without changing anything
 #   jellystation-tuners --write   write /config/mirakurun/tuners.yml (the old one is kept as tuners.yml.bak); restart after
+#   jellystation-tuners --devices print the device paths to pass to the container, one per line (jellystation-compose
+#                                 runs this against the host's /dev, where DVB frontends can be listed but not opened)
 # Devices: px4_drv character devices (PLEX PX-W3/Q3/MLT/M1UR/S1UR, e-Better DTV02A/DTV03A) by their names, and DVB
 # adapters (PT1/PT2/PT3, PX-S1UD/Q1UD, ...) by the delivery systems their frontend reports.
 set -uo pipefail
 OUT=/config/mirakurun/tuners.yml
 TUNE=/opt/jellystation/bin/tune
-n_gr=0 n_s=0 yaml=""
+n_gr=0 n_s=0 yaml="" devices=()
 
 add() { # add NAME DEVICE TYPES
   yaml+="- name: $1"$'\n'"  types: [$3]"$'\n'"  command: $TUNE $2 <type> <channel>"$'\n'
   [[ $3 == *GR* ]] && n_gr=$((n_gr + 1))
   [[ $3 == *BS* ]] && n_s=$((n_s + 1))
+  [[ $2 == /dev/dvb/* ]] || devices+=("$2")
   echo "  $1: $2 ($3)" >&2
 }
 
@@ -40,6 +43,7 @@ done
 for a in /dev/dvb/adapter*; do
   [ -e "$a/frontend0" ] || continue
   i=${a#/dev/dvb/adapter}
+  if [ "${1:-}" = --devices ]; then devices+=(/dev/dvb); break; fi
   info=$(dvb-fe-tool -a "$i" 2>&1 || true)
   t=()
   [[ $info == *ISDBT* ]] && t+=(GR)
@@ -64,6 +68,10 @@ elif [ ! -d /dev/bus/usb ]; then
   echo "WARNING: a smart card reader is connected, but /dev/bus/usb is not passed to the container: add it to devices" >&2
 else
   echo "B-CAS card reader: found" >&2
+fi
+if [ "${1:-}" = --devices ]; then
+  [ ${#devices[@]} -gt 0 ] && printf '%s\n' "${devices[@]}"
+  exit 0
 fi
 [ "$total" -gt 0 ] || exit 1
 
