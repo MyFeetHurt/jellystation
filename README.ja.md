@@ -218,7 +218,9 @@ JellyStation のフォルダー(`cd ~/jellystation`)で実行します。
   (Windows、macOS)はチューナーやカードリーダーをコンテナに渡せません。代わりに **チューナーサーバー**
   (チューナーとカードリーダーをつないで Mirakurun を動かすマシン)を使います。JellyStation はそのチューナーを
   ネットワーク越しに使います: `JELLYSTATION_REMOTE_MIRAKURUN=<チューナーサーバー>:40772`([設定](#設定) と
-  [補足](#補足) を参照)。Windows は [Windows](#windowsdocker-desktop) を参照。
+  [補足](#補足) を参照)。Linux では手順 3 のコマンドの `--rm` の後に
+  `-e JELLYSTATION_REMOTE_MIRAKURUN=<チューナーサーバー>:40772` を足すと、そのための compose ファイルを書きます。
+  Windows は [Windows](#windowsdocker-desktop) を参照。
 
 ## Windows(Docker Desktop)
 

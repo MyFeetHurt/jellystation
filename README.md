@@ -217,8 +217,9 @@ To uninstall, run `sudo docker compose down` and delete the folder (with the rec
 - **Windows, macOS, Raspberry Pi and other ARM boards**: the image is for x86-64 Linux, and Docker Desktop (Windows,
   macOS) can't pass tuners or card readers into a container. Use a **tuner server** instead: a machine that runs
   Mirakurun with the tuners and the card reader. JellyStation then uses its tuners over the network:
-  `JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772` (see [Settings](#settings) and [Notes](#notes)). On
-  Windows, see [Windows](#windows-docker-desktop).
+  `JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772` (see [Settings](#settings) and [Notes](#notes)). On Linux,
+  step 3 writes such a compose file when you add `-e JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772` after
+  `--rm`. On Windows, see [Windows](#windows-docker-desktop).
 
 ## Windows (Docker Desktop)
 
