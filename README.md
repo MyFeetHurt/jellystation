@@ -96,9 +96,11 @@ nothing, run `sudo modprobe px4_drv` (px4_drv tuners) and read what it says:
   driver's key once:
 
   ```sh
-  sudo mokutil --import /var/lib/shim-signed/mok/MOK.der   # Ubuntu, Linux Mint
-  sudo mokutil --import /var/lib/dkms/mok.pub              # Debian, Fedora
+  sudo mokutil --import /var/lib/shim-signed/mok/MOK.der   # Ubuntu
+  sudo mokutil --import /var/lib/dkms/mok.pub              # Debian, Fedora and others
   ```
+
+  (Only one of the two files exists on your machine: `ls /var/lib/shim-signed/mok/MOK.der /var/lib/dkms/mok.pub`.)
 
   Choose a one-time password, then `sudo reboot` and stay at the screen: a blue **Shim UEFI key management** screen
   waits **10 seconds** for a key press. Press a key, then choose **Enroll MOK** → **Continue** → **Yes**, type the
@@ -119,7 +121,7 @@ mkdir ~/jellystation && cd ~/jellystation
 sudo docker run --rm -v /dev:/dev:ro --entrypoint jellystation-compose ghcr.io/myfeethurt/jellystation > compose.yaml
 ```
 
-The first time, Docker downloads the image (about 3.5 GB). Then it prints what it found, for example:
+The first time, Docker downloads the image (about 1 GB; 3.5 GB on disk). Then it prints what it found, for example:
 
 ```
 tuners: /dev/px4video0 /dev/px4video1 /dev/px4video2 /dev/px4video3
@@ -156,10 +158,10 @@ appear when the whole scan is done. To follow it:
 sudo docker logs -f jellystation 2>&1 | grep -E "jellystation:|Z (mirakurun|jellyfin):|found [0-9]+ tuners|card reader"
 ```
 
-(Ctrl+C stops watching; JellyStation keeps running.) Mirakurun's page `http://<host>:40772` shows the scan too.
+(Ctrl+C stops watching; JellyStation keeps running.) Mirakurun's page `http://<host>:40772` shows the scan too;
+`<host>` is the address of the Linux machine (`hostname -I` shows it), e.g. `http://192.168.1.20:40772`.
 When the log says `channel scan finished`, EPGStation shows the channels within about 10 minutes and their
 programmes a little later. Make your first reservations after that.
-`<host>` is the address of the Linux machine (`hostname -I` shows it), e.g. `http://192.168.1.20:40772`.
 
 ### 6. Watch and record
 

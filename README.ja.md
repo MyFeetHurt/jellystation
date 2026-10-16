@@ -95,9 +95,11 @@ ls /dev/px4video* /dev/pxmlt* /dev/pxm1ur* /dev/pxs1ur* /dev/isdb* /dev/dvb 2>/d
   鍵を一度だけ登録します:
 
   ```sh
-  sudo mokutil --import /var/lib/shim-signed/mok/MOK.der   # Ubuntu、Linux Mint
-  sudo mokutil --import /var/lib/dkms/mok.pub              # Debian、Fedora
+  sudo mokutil --import /var/lib/shim-signed/mok/MOK.der   # Ubuntu
+  sudo mokutil --import /var/lib/dkms/mok.pub              # Debian、Fedora など
   ```
+
+  (どちらか片方のファイルだけがあります: `ls /var/lib/shim-signed/mok/MOK.der /var/lib/dkms/mok.pub`)
 
   一回限りのパスワードを決めて `sudo reboot` し、画面の前で待ちます: 青い **Shim UEFI key management** 画面が
   **10 秒** だけキー入力を待ちます。キーを押し、**Enroll MOK** → **Continue** → **Yes** → パスワード →
@@ -118,7 +120,7 @@ mkdir ~/jellystation && cd ~/jellystation
 sudo docker run --rm -v /dev:/dev:ro --entrypoint jellystation-compose ghcr.io/myfeethurt/jellystation > compose.yaml
 ```
 
-初回は Docker がイメージ(約 3.5 GB)をダウンロードします。その後、見つけたものを表示します。例:
+初回は Docker がイメージ(約 1 GB、展開後 3.5 GB)をダウンロードします。その後、見つけたものを表示します。例:
 
 ```
 tuners: /dev/px4video0 /dev/px4video1 /dev/px4video2 /dev/px4video3
