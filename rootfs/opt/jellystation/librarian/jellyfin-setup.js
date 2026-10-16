@@ -47,7 +47,10 @@ async function waitUp() {
   for (let i = 0; ; i++) {
     try {
       const res = await fetch(base + '/System/Info/Public', { signal: AbortSignal.timeout(5000) });
-      if (res.ok) return res.json();
+      // While Jellyfin 12 migrates its database at start, a setup server answers without Version and
+      // StartupWizardCompleted: wait for the real server, or the wizard would be run on a set-up Jellyfin.
+      const info = res.ok ? await res.json() : null;
+      if (info?.Version) return info;
     } catch { /* starting */ }
     if (i % 12 === 0) log('waiting for Jellyfin...');
     await sleep(5000);
