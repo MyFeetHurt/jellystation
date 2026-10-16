@@ -39,6 +39,7 @@ password=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 12)
   echo "    image: $image"
   echo "    container_name: jellystation"
   echo "    restart: unless-stopped"
+  echo "    stop_grace_period: 30s # time to finish recordings and close databases (Docker's 10 s is too short)"
   echo "    cap_add:"
   echo "      - SYS_NICE # Mirakurun raises its own priority"
   echo "    environment:"
@@ -46,6 +47,7 @@ password=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 12)
   echo "      JELLYSTATION_JELLYFIN_PASSWORD: \"$password\" # Jellyfin login: admin / this password (first start only)"
   if [ -n "$remote" ]; then
     echo "      JELLYSTATION_REMOTE_MIRAKURUN: \"$remote\" # tuner server; its Mirakurun has the tuners and the card"
+    echo "      JELLYSTATION_REMOTE_TUNERS: \"2\" # how many of its tuners JellyStation may use at once"
   else
     if [ ${#devices[@]} -eq 0 ]; then
       echo "    # No tuner was found. Install the driver and connect the tuner (README, step 2), then run"

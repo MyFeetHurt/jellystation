@@ -309,6 +309,7 @@ services:
     image: ghcr.io/myfeethurt/jellystation:latest
     container_name: jellystation
     restart: unless-stopped
+    stop_grace_period: 30s # time to finish recordings and close databases (Docker's 10 s is too short)
     cap_add:
       - SYS_NICE # Mirakurun raises its own priority
     environment:
