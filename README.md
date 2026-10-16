@@ -205,6 +205,7 @@ To uninstall, run `sudo docker compose down` and delete the folder (with the rec
 | `channel scan found no channels` | No signal: check the aerial cable. The scan runs again on the next start (`sudo docker compose restart`). |
 | A channel is missing (often NHK Eテレ after a scan at night, when it can be off the air) | Scan again in the daytime: `sudo docker exec jellystation jellystation-scan GR` (GR = terrestrial; also BS, CS, CATV; nothing = all). It adds what it finds and keeps the rest. |
 | Many `respawning because request has not closed` warnings | Normal during the channel scan (frequencies without a signal). |
+| EPGStation shows `database is locked` (SQLITE_BUSY) | Normal for a minute or two after each start, while EPGStation loads the programme guide. |
 
 ## Other systems
 
@@ -228,56 +229,59 @@ JellyStation runs on Windows 10/11 with Docker Desktop, using the tuners of a **
 your network that runs Mirakurun with the tuners and the B-CAS card. (Windows can't pass tuners or card readers into
 a container.)
 
-1. Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) (keep "Use WSL 2") and
-   restart. If Docker Desktop then says **WSL not installed**, right-click Start → Terminal (Admin), run
-   `wsl --install`, and restart again.
-2. Start Docker Desktop from the Start menu and wait for **Engine running**. In Settings → General, turn on **Start
-   Docker Desktop when you sign in to your computer**.
+1. Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) (keep "Use WSL 2 instead
+   of Hyper-V") and restart. If Docker Desktop then says **WSL not installed**, right-click Start → **Terminal
+   (Admin)** (on some editions **Windows PowerShell (Admin)**), click Yes, run `wsl --install`, and restart again.
+2. Start Docker Desktop from the Start menu: accept the agreement, skip signing in, and wait for **Engine running**.
+   In Settings → General, turn on **Start Docker Desktop when you sign in to your computer**.
 3. Make a folder, e.g. `C:\Users\<you>\jellystation`. Open Notepad, paste the file below, change the tuner server's
-   address and the password, and save it in that folder as `compose.yaml` with **Save as type: All files** and
-   **Encoding: UTF-8** (otherwise Notepad saves `compose.yaml.txt`):
+   address and the password, and save it in that folder as `compose.yaml` with **Save as type: All Files (\*.\*)**
+   and **Encoding: UTF-8** (otherwise Notepad saves `compose.yaml.txt`):
 
-```yaml
-services:
-  jellystation:
-    image: ghcr.io/myfeethurt/jellystation:latest
-    container_name: jellystation
-    restart: unless-stopped
-    stop_grace_period: 30s
-    cap_add:
-      - SYS_NICE
-    environment:
-      TZ: Asia/Tokyo
-      JELLYSTATION_JELLYFIN_PASSWORD: change-me # Jellyfin login admin / this
-      JELLYSTATION_REMOTE_MIRAKURUN: "192.168.1.10:40772" # your tuner server
-      JELLYSTATION_REMOTE_TUNERS: "2"
-    ports:
-      - "8096:8096"
-      - "8888:8888"
-      - "40772:40772"
-    volumes:
-      - config:/config # settings and databases, inside Docker (fast)
-      - cache:/cache
-      - ./media:/media # recordings, in this folder; or a bigger drive: D:\TV:/media
-volumes:
-  config:
-  cache:
-```
+   ```yaml
+   services:
+     jellystation:
+       image: ghcr.io/myfeethurt/jellystation:latest
+       container_name: jellystation
+       restart: unless-stopped
+       stop_grace_period: 30s
+       cap_add:
+         - SYS_NICE
+       environment:
+         TZ: Asia/Tokyo
+         JELLYSTATION_JELLYFIN_PASSWORD: change-me # Jellyfin login admin / this
+         JELLYSTATION_REMOTE_MIRAKURUN: "192.168.1.10:40772" # your tuner server
+         JELLYSTATION_REMOTE_TUNERS: "2"
+       ports:
+         - "8096:8096"
+         - "8888:8888"
+         - "40772:40772"
+       volumes:
+         - config:/config # settings and databases, inside Docker (fast)
+         - cache:/cache
+         - ./media:/media # recordings, in this folder; or a bigger drive: D:\TV:/media
+   volumes:
+     config:
+     cache:
+   ```
 
    There is no `devices:` part on Windows. Settings and databases are kept in Docker's own storage (`config`,
    `cache`): in a Windows folder EPGStation's database is locked for minutes at a time and Jellyfin's guide takes
    most of an hour to load. Recordings stay in the `media` folder, where Explorer shows them. Don't use Linux paths
    such as `/srv/tv`: Docker Desktop keeps those in its virtual machine's memory, and they are gone after a restart.
 4. Type `powershell` in the folder's address bar, press Enter, and run `docker compose up -d` (no `sudo` on
-   Windows). When Windows asks whether **Docker Desktop Backend** may use the network, click **Allow**; otherwise
-   your TV and phone can't reach Jellyfin.
+   Windows). When Windows Security asks **Do you want to allow public and private networks to access this app?**
+   (Docker Desktop Backend), click **Allow**; otherwise your TV and phone can't reach Jellyfin.
 5. The first start takes about 20 minutes (channel list from the tuner server, then the guide);
    `docker compose logs -f` shows it.
 6. Open `http://localhost:8096` on the PC, or `http://<PC address>:8096` from other devices (`ipconfig` shows the
    IPv4 address).
 
 JellyStation runs only while Docker Desktop runs, which means while someone is signed in to Windows and the PC isn't
-asleep: turn sleep off (Settings → System → Power) if it should record at night. Recordings in `media\library` are
+asleep: set sleep to Never (Settings → System → Power, on laptops Power & battery → Screen and sleep timeouts) if it
+should record at night. Windows Update also restarts the PC at night, and JellyStation is only back after someone
+signs in: set active hours (Settings → Windows Update → Advanced options) around your recordings, or use a PC that
+signs in by itself. Recordings in `media\library` are
 hardlinks of those in `media\recorded`: Explorer shows both, but the disk space is used once. Docker gets half of the
 PC's memory; 8 GB PCs work.
 
