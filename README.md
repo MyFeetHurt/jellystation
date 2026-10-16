@@ -405,7 +405,9 @@ docker build -t jellystation .
   from another produces no events. So with `JELLYSTATION_REMOTE_MIRAKURUN`, EPGStation talks to the tuner server's
   Mirakurun, and the container's Mirakurun feeds Jellyfin Live TV. On first start the channel scan takes about 15
   minutes with two remote tuners; when it is done, the EPG gatherer is started once so the guide doesn't wait for
-  Mirakurun's next :20/:50 run.
+  Mirakurun's next :20/:50 run. Channel logos come from tuning each channel (Mirakurun's `LOGO_DATA_INTERVAL`); with
+  remote tuners that ties up the tuner server's tuners, so `LOGO_DATA_INTERVAL: "999999999"` (no logos) is a good
+  idea when the tuner server also records for others.
 - Mirakurun, EPGStation and Jellyfin run unmodified; JellyStation only adds configuration and its own helper scripts.
 - **Captions.** jellyfin-ffmpeg has no ARIB caption decoder, so the image adds a static ffmpeg from
   [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) (`/opt/ffmpeg-arib`, with libaribcaption) that only

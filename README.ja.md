@@ -407,7 +407,9 @@ docker build -t jellystation .
   Mirakurun からコピーした EPG ではイベントが出ません。そのため `JELLYSTATION_REMOTE_MIRAKURUN` では EPGStation は
   チューナーサーバーの Mirakurun を直接使い、コンテナの Mirakurun は Jellyfin のライブ TV に使います。初回の
   チャンネルスキャンはリモートチューナー 2 つで約 15 分。終わると EPG の取得を一度始めるので、番組表が Mirakurun の
-  次の :20/:50 を待つことはありません。
+  次の :20/:50 を待つことはありません。チャンネルのロゴは各チャンネルを選局して取ります(Mirakurun の
+  `LOGO_DATA_INTERVAL`)。リモートチューナーではチューナーサーバーのチューナーを使うので、チューナーサーバーがほかの
+  録画もしている場合は `LOGO_DATA_INTERVAL: "999999999"`(ロゴなし)がおすすめです。
 - Mirakurun、EPGStation、Jellyfin は改変せずに動かしています。JellyStation が加えるのは設定と自前の補助スクリプト
   だけです。
 - **字幕。** jellyfin-ffmpeg には ARIB 字幕のデコーダーがないので、イメージには

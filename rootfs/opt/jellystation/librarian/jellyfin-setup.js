@@ -196,11 +196,24 @@ async function refreshLibrary() {
   await call('POST', '/Library/Refresh');
 }
 
+/**
+ * Jellyfin keeps a downloaded XMLTV file for an hour, and a guide refresh within that hour reads the old copy. On a
+ * first start that copy is the empty guide from before the channel scan, so the refreshes after the scan changed
+ * nothing and the guide stayed empty for up to an hour. Remove the cached copies, so the refresh downloads the guide.
+ */
+function dropCachedGuide() {
+  const dir = path.join(env.JELLYSTATION_JELLYFIN_CACHE || '/cache', 'xmltv');
+  let files = [];
+  try { files = fs.readdirSync(dir).filter(f => f.endsWith('.xml')); } catch { /* nothing cached yet */ }
+  for (const f of files) fs.rmSync(path.join(dir, f), { force: true });
+}
+
 /** Run Jellyfin's "Refresh Guide" task: re-reads the tuner playlist (channels) and the XMLTV guide. */
 async function refreshGuide() {
   if (!apiKey || /^(0|false|no)$/i.test(env.JELLYSTATION_LIVETV || '')) return;
   const task = (await call('GET', '/ScheduledTasks')).find(t => t.Key === 'RefreshGuide');
   if (!task) return;
+  dropCachedGuide();
   await call('POST', `/ScheduledTasks/Running/${task.Id}`);
   log('Live TV guide refresh started');
 }
