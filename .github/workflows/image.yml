@@ -21,6 +21,11 @@ jobs:
           node-version: 22
       - run: node --test tests/*.test.js
       - run: bash -n rootfs/opt/jellystation/bin/* && sh -n rootfs/opt/jellystation/ffmpeg/ffmpeg rootfs/opt/jellystation/ffmpeg/ffprobe
+      # s6 run scripts start with "#!/command/with-contenv bash", which shellcheck doesn't recognise: -s bash
+      - run: |
+          shellcheck -S warning rootfs/opt/jellystation/bin/* rootfs/opt/jellystation/ffmpeg/* rootfs/usr/local/bin/npm \
+            rootfs/etc/s6-overlay/s6-rc.d/epgstation/finish
+          shellcheck -S warning -s bash rootfs/etc/s6-overlay/s6-rc.d/*/run
 
   image:
     needs: test
