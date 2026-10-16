@@ -203,6 +203,7 @@ To uninstall, run `sudo docker compose down` and delete the folder (with the rec
 | `no tuner devices found` in the log | The tuners weren't passed to the container. Write `compose.yaml` again (step 3), then `sudo rm config/mirakurun/tuners.yml` and `sudo docker compose up -d --force-recreate`. |
 | `WARNING: no smart card reader found` / recordings and Live TV don't play | Connect the card reader with the B-CAS card in it, make sure `/dev/bus/usb` is in `devices:`, and `sudo docker compose restart`. |
 | `channel scan found no channels` | No signal: check the aerial cable. The scan runs again on the next start (`sudo docker compose restart`). |
+| A channel is missing (often NHK Eテレ after a scan at night, when it can be off the air) | Scan again in the daytime: `sudo docker exec jellystation jellystation-scan GR` (GR = terrestrial; also BS, CS, CATV; nothing = all). It adds what it finds and keeps the rest. |
 | Many `respawning because request has not closed` warnings | Normal during the channel scan (frequencies without a signal). |
 
 ## Other systems
@@ -353,8 +354,9 @@ Cable TV that is only delivered through the cable company's set-top box (transmo
 **Adding or changing tuners.** Pass the new devices (run `jellystation-compose` again, or add them to `devices:` in
 `compose.yaml`) and `sudo docker compose up -d`. Then `sudo docker exec jellystation jellystation-tuners` shows what
 it finds and `sudo docker exec jellystation jellystation-tuners --write` replaces `tuners.yml` (the old one is kept as
-`tuners.yml.bak`); `sudo docker compose restart` afterwards. To scan the channels again, delete
-`config/mirakurun/channels.yml` and `tuners.yml` before restarting, or use Mirakurun's scan API. The tuner command is
+`tuners.yml.bak`); `sudo docker compose restart` afterwards. To look for channels again, run
+`sudo docker exec jellystation jellystation-scan` (adds what it finds, keeps the rest; `GR`, `BS`, `CS` or `CATV`
+for a part only). To start over, delete `config/mirakurun/channels.yml` and `tuners.yml` and restart. The tuner command is
 `/opt/jellystation/bin/tune DEVICE <type> <channel>`; `JELLYSTATION_RECISDB_ARGS` adds recisdb options to it (e.g.
 `--lnb 15v` when the tuner powers the dish).
 

@@ -1,0 +1,25 @@
+#!/bin/bash
+# Scans the channels of the local tuners again and adds what it finds; channels it doesn't find are kept.
+#   jellystation-scan            terrestrial, BS, CS and cable (about an hour)
+#   jellystation-scan GR         only some of them: GR (terrestrial), BS, CS, CATV (cable)
+# For channels that were off the air during the first scan (NHK Eテレ pauses some nights) or a new aerial.
+# The librarian runs the scan (as on the first start) and restarts Mirakurun once at the end, which makes Mirakurun
+# gather the programme guide again.
+set -euo pipefail
+SCAN_FILE=/config/jellystation/channel-scan
+if [ -n "${JELLYSTATION_REMOTE_MIRAKURUN:-}" ]; then
+  echo "jellystation-scan: the tuners are on $JELLYSTATION_REMOTE_MIRAKURUN; scan the channels there" >&2
+  exit 1
+fi
+if [ -s "$SCAN_FILE" ]; then
+  echo "jellystation-scan: a channel scan is still running (left: $(paste -sd, "$SCAN_FILE")); wait for 'channel scan finished'" >&2
+  exit 1
+fi
+types=("$@")
+[ ${#types[@]} -gt 0 ] || types=(GR BS CS CATV)
+for t in "${types[@]}"; do
+  case $t in GR|BS|CS|CATV) ;; *) echo "jellystation-scan: unknown type '$t' (GR, BS, CS or CATV)" >&2; exit 2 ;; esac
+done
+printf '%s\n' "${types[@]}" > "$SCAN_FILE"
+/command/s6-svc -r /run/service/librarian
+echo "channel scan started (${types[*]}). Follow it with: docker logs -f jellystation 2>&1 | grep 'channel scan'"

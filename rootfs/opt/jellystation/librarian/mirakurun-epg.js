@@ -59,6 +59,7 @@ async function scanChannels() {
   const all = [...scans];
   const yaml = require(require.resolve('js-yaml', { paths: ['/opt/mirakurun'] }));
   const readChannels = () => { try { return yaml.load(fs.readFileSync(CHANNELS_FILE, 'utf8')) || []; } catch { return []; } };
+  const before = JSON.stringify(readChannels());
   await waitMirakurun();
   while (scans.length) {
     const name = scans[0];
@@ -76,9 +77,13 @@ async function scanChannels() {
     log(`channel scan ${name} done: ${found.length} channels` + (found.length ? ` (${found.map(c => c.name).slice(0, 8).join(', ')}${found.length > 8 ? ', ...' : ''})` : ''));
     scans.shift();
     if (found.length) {
+      // In place, so that scanning again without changes leaves channels.yml as it was (see the end).
       const key = c => `${c.type}/${c.channel}`;
-      const merged = readChannels().filter(c => !found.some(f => key(f) === key(c)));
-      merged.push(...found);
+      const merged = readChannels();
+      for (const f of found) {
+        const i = merged.findIndex(c => key(c) === key(f));
+        if (i >= 0) merged[i] = { ...f, isDisabled: merged[i].isDisabled ?? false }; else merged.push(f); // keep what the user disabled
+      }
       fs.writeFileSync(CHANNELS_FILE, yaml.dump(merged));
       log(`${merged.length} channels in ${CHANNELS_FILE}` + (scans.length ? `; still to scan: ${scans.join(', ')}` : ''));
     }
@@ -90,6 +95,8 @@ async function scanChannels() {
     return;
   }
   fs.unlinkSync(SCAN_FILE);
+  // A scan again (jellystation-scan) that found nothing new: no restart, which would only throw away the EPG.
+  if (JSON.stringify(readChannels()) === before) { log(`channel scan finished: no new channels (${readChannels().length})`); return; }
   await restartMirakurun(`channel scan finished: ${readChannels().length} channels`);
 }
 

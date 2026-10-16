@@ -202,6 +202,7 @@ JellyStation のフォルダー(`cd ~/jellystation`)で実行します。
 | ログに `no tuner devices found` | チューナーがコンテナに渡されていません。`compose.yaml` を作り直し(手順 3)、`sudo rm config/mirakurun/tuners.yml` の後 `sudo docker compose up -d --force-recreate`。 |
 | `WARNING: no smart card reader found` / 録画やライブ TV が再生できない | B-CAS カードを入れたカードリーダーをつなぎ、`devices:` に `/dev/bus/usb` があるか確かめて `sudo docker compose restart`。 |
 | `channel scan found no channels` | 電波がありません: アンテナ線を確かめます。次の起動時にもう一度スキャンします(`sudo docker compose restart`)。 |
+| チャンネルが足りない(夜中にスキャンすると、停波中の NHK Eテレなどが抜けます) | 昼間にもう一度スキャン: `sudo docker exec jellystation jellystation-scan GR`(GR = 地デジ。BS、CS、CATV も。省略で全部)。見つかったものを追加し、ほかはそのまま残します。 |
 | `respawning because request has not closed` の警告がたくさん | チャンネルスキャン中は正常です(電波のない周波数)。 |
 
 ## ほかのシステム
@@ -353,8 +354,9 @@ JellyStation は [recisdb](https://github.com/kazuki0824/recisdb-rs)(Rust で書
 **チューナーの追加・変更。** 新しいデバイスを渡し(`jellystation-compose` をもう一度実行するか、`compose.yaml` の
 `devices:` に追加)、`sudo docker compose up -d`。`sudo docker exec jellystation jellystation-tuners` で見つかる
 ものを確認し、`sudo docker exec jellystation jellystation-tuners --write` で `tuners.yml` を書き換えて(元のものは
-`tuners.yml.bak` に残ります)`sudo docker compose restart`。スキャンし直すには再起動前に
-`config/mirakurun/channels.yml` と `tuners.yml` を削除するか、Mirakurun のスキャン API を使います。選局コマンドは
+`tuners.yml.bak` に残ります)`sudo docker compose restart`。チャンネルを探し直すには
+`sudo docker exec jellystation jellystation-scan`(見つかったものを追加し、ほかは残します。`GR`、`BS`、`CS`、`CATV`
+で一部だけ)。最初からやり直すには `config/mirakurun/channels.yml` と `tuners.yml` を削除して再起動します。選局コマンドは
 `/opt/jellystation/bin/tune DEVICE <type> <channel>` で、`JELLYSTATION_RECISDB_ARGS` で recisdb のオプションを
 追加できます(チューナーからアンテナに給電する場合の `--lnb 15v` など)。
 
