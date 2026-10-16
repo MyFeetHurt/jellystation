@@ -153,7 +153,7 @@ On the first start JellyStation looks for channels: terrestrial, BS, CS and cabl
 appear when the whole scan is done. To follow it:
 
 ```sh
-sudo docker compose logs -f | grep -E "jellystation|channel scan|tuners"
+sudo docker logs -f jellystation 2>&1 | grep -E "jellystation:|Z (mirakurun|jellyfin):|found [0-9]+ tuners|card reader"
 ```
 
 (Ctrl+C stops watching; JellyStation keeps running.) Mirakurun's page `http://<host>:40772` shows the scan too.

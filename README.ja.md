@@ -152,7 +152,7 @@ sudo docker compose up -d
 スキャンがすべて終わってから出てきます。進み具合を見るには:
 
 ```sh
-sudo docker compose logs -f | grep -E "jellystation|channel scan|tuners"
+sudo docker logs -f jellystation 2>&1 | grep -E "jellystation:|Z (mirakurun|jellyfin):|found [0-9]+ tuners|card reader"
 ```
 
 (Ctrl+C で表示をやめます。JellyStation は動き続けます。)Mirakurun のページ `http://<host>:40772` でも見られます。
