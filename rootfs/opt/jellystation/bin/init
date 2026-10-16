@@ -51,8 +51,9 @@ if [ ! -f /config/mirakurun/tuners.yml ]; then
   else
     cp "$D/mirakurun/tuners.yml" /config/mirakurun/tuners.yml
     [ -f /config/mirakurun/channels.yml ] || echo '[]' > /config/mirakurun/channels.yml
-    echo "jellystation: no tuner devices found. Pass them to the container (see README), delete config/mirakurun/tuners.yml" \
-         "and restart, or set JELLYSTATION_REMOTE_MIRAKURUN"
+    echo "jellystation: no tuner devices found. Pass them to the container (write compose.yaml again with" \
+         "jellystation-compose, see README), delete config/mirakurun/tuners.yml and run 'docker compose up -d" \
+         "--force-recreate'; or set JELLYSTATION_REMOTE_MIRAKURUN"
   fi
 fi
 [ -f /config/mirakurun/channels.yml ] || cp "$MK/config/channels.yml" /config/mirakurun/channels.yml
