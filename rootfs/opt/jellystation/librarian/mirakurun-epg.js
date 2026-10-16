@@ -40,8 +40,9 @@ const SCAN_NOTES = {
  * when the whole scan is done: it reads channels.yml on start only, and when the channel list differs from the one its
  * service and programme databases were saved with, it throws both away. A restart after each part wiped the EPG of the
  * channels already found, and EPGStation then dropped those programmes, so reservations made during the scan never
- * recorded. Finished parts leave SCAN_FILE, so a container restart continues where it stopped. When nothing at all was found (no aerial or
- * dish connected?), the whole scan runs again on the next start.
+ * recorded. Finished parts leave SCAN_FILE, so a container restart continues where it stopped (a part that fails
+ * leaves Mirakurun with the channels found so far). When nothing at all was found (no aerial or dish connected?), the
+ * whole scan runs again on the next start.
  */
 const SCAN_ORDER = ['GR', 'BS', 'CS', 'CATV'];
 
@@ -66,7 +67,11 @@ async function scanChannels() {
     const q = new URLSearchParams({ ...SCANS[name], dryRun: true, refresh: true });
     const res = await fetch(`${url}/api/config/channels/scan?${q}`, { method: 'PUT', signal: AbortSignal.timeout(3 * 3600 * 1000) });
     const text = await res.text();
-    if (!res.ok || /Error during scan/.test(text)) { log(`channel scan ${name} failed: ${text.slice(-300)}`); return; }
+    if (!res.ok || /Error during scan/.test(text)) {
+      log(`channel scan ${name} failed: ${text.slice(-300)}`);
+      if (readChannels().length) await restartMirakurun(`${readChannels().length} channels found so far`);
+      return;
+    }
     const found = text.split('\n').filter(l => l.startsWith('-> {')).map(l => ({ ...JSON.parse(l.slice(3)), isDisabled: false }));
     log(`channel scan ${name} done: ${found.length} channels` + (found.length ? ` (${found.map(c => c.name).slice(0, 8).join(', ')}${found.length > 8 ? ', ...' : ''})` : ''));
     scans.shift();
@@ -85,9 +90,13 @@ async function scanChannels() {
     return;
   }
   fs.unlinkSync(SCAN_FILE);
-  // Mirakurun reads the channel list on start only (its own restart API needs an INIT_PID it doesn't have here).
+  await restartMirakurun(`channel scan finished: ${readChannels().length} channels`);
+}
+
+/** Mirakurun reads the channel list on start only (its own restart API needs an INIT_PID it doesn't have here). */
+async function restartMirakurun(why) {
   execFileSync('/command/s6-svc', ['-r', '/run/service/mirakurun']);
-  log(`channel scan finished: ${readChannels().length} channels, Mirakurun restarted with them`);
+  log(`${why}, Mirakurun restarted with them`);
   await sleep(10000);
   await waitMirakurun();
 }

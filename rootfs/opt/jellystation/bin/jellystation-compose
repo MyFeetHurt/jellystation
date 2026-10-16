@@ -61,7 +61,10 @@ password=$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 12)
       echo "      - /dev/bus/usb:/dev/bus/usb # B-CAS card reader (none was found: connect it before the first start)"
     fi
   fi
-  [ -e /dev/dri ] && echo "      # - /dev/dri:/dev/dri # Intel/AMD GPU: turn on hardware transcoding in Jellyfin's dashboard afterwards"
+  if [ -e /dev/dri ]; then
+    [ -n "$remote" ] && echo "    # devices:"
+    echo "      # - /dev/dri:/dev/dri # Intel/AMD GPU: turn on hardware transcoding in Jellyfin's dashboard afterwards"
+  fi
   echo "    ports:"
   echo "      - \"8096:8096\" # Jellyfin"
   echo "      - \"8888:8888\" # EPGStation"
