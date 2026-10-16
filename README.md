@@ -21,13 +21,285 @@ Full video (1:21): [jellystation-demo.mp4](https://cdn.jsdelivr.net/gh/MyFeetHur
   is installed and connected to the bundled EPGStation (guide, search, reservations and rules, for every user).
 - Includes a fix for Jellyfin 12, which otherwise can't play Japanese broadcast TS (see [Notes](#notes)).
 
-| Port  | Service    |
-|-------|------------|
-| 8096  | Jellyfin   |
-| 8888  | EPGStation |
-| 40772 | Mirakurun  |
+## What you need
 
-## Quick start
+- A PC or NAS with **x86-64 Linux**. Tested on Ubuntu 24.04 and 26.04, Debian 13, Fedora 44, TrueNAS 25.10 and
+  OpenMediaVault 8. Windows, macOS and ARM boards (Raspberry Pi) can't use tuners in a container: see
+  [Other systems](#other-systems).
+- A **tuner** that works on Linux (see [Tuners](#tuners)), connected to your aerial (and dish for BS/CS).
+- A **B-CAS card** and a USB **smart card reader** (NTT Communications SCR3310, ACS ACR39 and similar). The card slot
+  built into some PLEX tuners doesn't work on Linux.
+- Disk space: a recording takes about 7 GB per hour (terrestrial HD) to 11 GB per hour (BS).
+
+## Install
+
+You type the commands below in a terminal on the Linux machine (or over ssh). Commands that start with `sudo` run as
+administrator and ask for your password. Each step says how to check that it worked.
+
+### 1. Install Docker
+
+```sh
+curl -fsSL https://get.docker.com | sudo sh
+sudo systemctl enable --now docker
+```
+
+This works on Ubuntu, Debian, Fedora and their relatives (Linux Mint, ...). Your distribution's own packages are
+fine too: on Ubuntu `sudo apt install docker.io docker-compose-v2` (both: the second one is `docker compose`), on
+Fedora `sudo dnf install docker-cli moby-engine docker-compose`.
+
+Check: `sudo docker compose version` prints a version.
+
+This README writes `sudo docker ...` everywhere. Without `sudo` Docker answers `permission denied while trying to
+connect to the docker API`. (To leave out `sudo`, run `sudo usermod -aG docker $USER` and log in again.)
+
+### 2. Install the tuner driver
+
+Tuner drivers run in the Linux kernel, so they are installed on the machine itself, not in the container. Look up
+your tuner in [Tuners](#tuners):
+
+- **Earthsoft PT1/PT2/PT3, PLEX PX-S1UD and other DVB tuners** need no driver: Linux has it. Skip to the check below.
+- **PLEX PX-W3U4, PX-Q3U4, PX-W3PE4/5, PX-Q3PE4/5, PX-MLT, PX-M1UR, PX-S1UR, e-Better DTV02A/03A** need
+  [px4_drv](https://github.com/tsukumijima/px4_drv). On Ubuntu, Debian and their relatives:
+
+  ```sh
+  sudo apt install -y dkms linux-headers-$(uname -r)
+  wget https://github.com/tsukumijima/px4_drv/releases/download/v0.6.1/px4-drv-dkms_0.6.1_all.deb
+  sudo apt install -y ./px4-drv-dkms_0.6.1_all.deb
+  ```
+
+  So that the driver is rebuilt after kernel updates, also install the headers package that follows them:
+  `sudo apt install linux-headers-generic` (Ubuntu) or `sudo apt install linux-headers-amd64` (Debian).
+
+  On Fedora (and other distributions without .deb packages), build it with DKMS from the source:
+
+  ```sh
+  sudo dnf install -y dkms kernel-devel-$(uname -r) gcc make git
+  git clone --depth 1 --branch v0.6.1 https://github.com/tsukumijima/px4_drv
+  sudo cp -a px4_drv /usr/src/px4_drv-0.6.1
+  sudo dkms add px4_drv/0.6.1 && sudo dkms install px4_drv/0.6.1
+  ```
+
+  Ubuntu only: when the PC uses **Secure Boot**, the installation shows a blue "Configuring Secure Boot" screen that
+  asks for a password. Choose one (8 characters or more) and write it down: you need it once after the next reboot
+  (see below).
+
+Check: connect the tuner (USB tuners: unplug and plug in again after installing the driver), then
+
+```sh
+ls /dev/px4video* /dev/pxmlt* /dev/pxm1ur* /dev/pxs1ur* /dev/isdb* /dev/dvb 2>/dev/null
+```
+
+lists your tuner (`/dev/px4video0` ... for px4_drv tuners, `/dev/dvb` for PT3 and DVB tuners). When it lists
+nothing, run `sudo modprobe px4_drv` (px4_drv tuners) and read what it says:
+
+- `Key was rejected by service`: **Secure Boot** refuses the self-built driver. Tell the firmware to trust the
+  driver's key once:
+
+  ```sh
+  sudo mokutil --import /var/lib/shim-signed/mok/MOK.der   # Ubuntu, Linux Mint
+  sudo mokutil --import /var/lib/dkms/mok.pub              # Debian, Fedora
+  ```
+
+  Choose a one-time password, then `sudo reboot` and stay at the screen: a blue **Shim UEFI key management** screen
+  waits **10 seconds** for a key press. Press a key, then choose **Enroll MOK** → **Continue** → **Yes**, type the
+  password, and **Reboot**. If you miss the 10 seconds, the request is dropped: run the `mokutil` command again and
+  reboot. (Ubuntu users who chose a password in the blue screen during the installation only need the reboot.)
+  Turning Secure Boot off in the firmware settings works too.
+- `Module px4_drv not found`: the driver wasn't built. `sudo dkms status` should say `installed`; when it says
+  `added`, the kernel headers were missing: install them (above) and run `sudo dkms autoinstall`.
+
+### 3. Write the compose file
+
+A **compose file** (`compose.yaml`) tells Docker how to run JellyStation: which tuners it may use and where it keeps
+its data. JellyStation writes one for your machine. Make a folder for it, go into it, and run the second command
+(one long line):
+
+```sh
+mkdir ~/jellystation && cd ~/jellystation
+sudo docker run --rm -v /dev:/dev:ro --entrypoint jellystation-compose ghcr.io/myfeethurt/jellystation > compose.yaml
+```
+
+The first time, Docker downloads the image (about 3.5 GB). Then it prints what it found, for example:
+
+```
+tuners: /dev/px4video0 /dev/px4video1 /dev/px4video2 /dev/px4video3
+card reader: found
+Jellyfin login: admin / JZZqDFBIKS4j
+next: sudo docker compose up -d
+```
+
+Write down the Jellyfin password; it is also in `compose.yaml`. When it says `tuners: NONE found` or the card reader
+is missing, go back to step 2 and run the command again (you can also edit `compose.yaml` by hand later, see
+[The compose file](#the-compose-file)).
+
+Everything JellyStation stores goes into this folder: `config/` (settings, databases), `cache/` and `media/`
+(recordings and the Jellyfin library). For recordings on a bigger disk, change `./media` in the `volumes:` part of
+`compose.yaml` to a folder on that disk, e.g. `/mnt/bigdisk/tv:/media`.
+
+### 4. Start it
+
+```sh
+sudo docker compose up -d
+```
+
+Run it in the folder with `compose.yaml` (`cd ~/jellystation`). `-d` means it keeps running in the background, also
+after you close the terminal, and it starts again by itself after a reboot.
+
+Check: `sudo docker compose ps` says `Up` and, after a minute, `(healthy)`.
+
+### 5. Wait for the channel scan
+
+On the first start JellyStation looks for channels: terrestrial, BS, CS and cable TV, about an hour. The channels
+appear when the whole scan is done. To follow it:
+
+```sh
+sudo docker compose logs -f | grep -E "jellystation|channel scan|tuners"
+```
+
+(Ctrl+C stops watching; JellyStation keeps running.) Mirakurun's page `http://<host>:40772` shows the scan too.
+When the log says `channel scan finished`, EPGStation shows the channels within about 10 minutes and their
+programmes a little later. Make your first reservations after that.
+`<host>` is the address of the Linux machine (`hostname -I` shows it), e.g. `http://192.168.1.20:40772`.
+
+### 6. Watch and record
+
+- **Jellyfin** `http://<host>:8096`: log in as `admin` with the password from step 3. The TV and Movies libraries
+  and Live TV are already set up. Add users for your family in Dashboard → Users.
+- **EPGStation** `http://<host>:8888`: the programme guide; add reservations or rules (e.g. every episode of a
+  series). Recordings can also be scheduled inside Jellyfin at `http://<host>:8096/EpgStation/Web/`.
+- Finished recordings appear in Jellyfin a few minutes after they end.
+
+## Everyday commands
+
+Run them in the JellyStation folder (`cd ~/jellystation`).
+
+| What | Command |
+|---|---|
+| Is it running? | `sudo docker compose ps` |
+| Show the log (Ctrl+C to stop) | `sudo docker compose logs -f` |
+| Stop | `sudo docker compose down` |
+| Start | `sudo docker compose up -d` |
+| Restart (after changing a config file) | `sudo docker compose restart` |
+| Update to the newest version | `sudo docker compose pull && sudo docker compose up -d` |
+| Apply changes to `compose.yaml` | `sudo docker compose up -d` |
+| Show the tuners JellyStation sees | `sudo docker exec jellystation jellystation-tuners` |
+
+`down` and updates keep your recordings, settings and reservations: they are in the folder, not in the container.
+To uninstall, run `sudo docker compose down` and delete the folder (with the recordings in it).
+
+## Troubleshooting
+
+| You see | What to do |
+|---|---|
+| `permission denied while trying to connect to the docker API` | Put `sudo` in front of the command. |
+| `no configuration file provided: not found` | You are not in the folder with `compose.yaml`: `cd ~/jellystation`. |
+| `empty compose file` | The command in step 3 failed and left an empty file: run it again and read its message. |
+| `error while creating mount source path '/srv/...': read-only file system` | Docker was installed as a snap (Ubuntu Server's installer offers it), which may only use folders in your home and `/mnt`. Keep the data there, or remove the snap (`sudo snap remove docker`) and install Docker as in step 1. |
+| `error gathering device information while adding custom device "/dev/px4video0": no such file or directory` | A device in `compose.yaml` doesn't exist (tuner unplugged, driver not loaded: step 2). Fix that, or remove the line. |
+| `modprobe: ERROR: could not insert 'px4_drv': Key was rejected by service` | Secure Boot: enroll the driver key (step 2). |
+| `mkdir: cannot create directory '/config/...': Permission denied` (Fedora, RHEL) | SELinux: add `:z` after each folder in `volumes:` (`./config:/config:z`). `jellystation-compose` does that by itself. |
+| `no tuner devices found` in the log | The tuners weren't passed to the container. Write `compose.yaml` again (step 3), then `sudo rm config/mirakurun/tuners.yml` and `sudo docker compose up -d --force-recreate`. |
+| `WARNING: no smart card reader found` / recordings and Live TV don't play | Connect the card reader with the B-CAS card in it, make sure `/dev/bus/usb` is in `devices:`, and `sudo docker compose restart`. |
+| `channel scan found no channels` | No signal: check the aerial cable. The scan runs again on the next start (`sudo docker compose restart`). |
+| Many `respawning because request has not closed` warnings | Normal during the channel scan (frequencies without a signal). |
+
+## Other systems
+
+- **TrueNAS SCALE / Community Edition** (tested with 25.10): create datasets for the config, cache and media, then
+  Apps → Discover Apps → ⋮ → Install via YAML and paste a compose file with those paths (`/mnt/<pool>/...`).
+  TrueNAS can't install extra kernel drivers, so only tuners whose driver is part of Linux work there: PT1/PT2/PT3
+  and PX-S1UD (tested with a PT3). For px4_drv tuners (PX-W3U4, PX-Q3U4, ...), see the tuner server below.
+- **OpenMediaVault** (tested with 8): it is Debian underneath, so install the tuner driver as in step 2.
+  Then, with the Compose plugin from omv-extras, add a file with the compose file from step 3; in `volumes:` use
+  `CHANGE_TO_COMPOSE_DATA_PATH` (the plugin's data folder) instead of `.`.
+- **Windows, macOS, Raspberry Pi and other ARM boards**: the image is for x86-64 Linux, and Docker Desktop (Windows,
+  macOS) can't pass tuners or card readers into a container. Use a **tuner server** instead: a machine that runs
+  Mirakurun with the tuners and the card reader. JellyStation then uses its tuners over the network:
+  `JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772` (see [Settings](#settings) and [Notes](#notes)).
+  WINDOWS_SECTION_PLACEHOLDER
+
+## Watching away from home (Tailscale)
+
+[Tailscale](https://tailscale.com) (free for personal use) connects your phone or laptop to your home machine
+over the internet without opening ports on your router. Don't forward ports 8888 and 40772 to the internet instead:
+EPGStation and Mirakurun have no login.
+
+The easy way: install Tailscale on the Linux machine itself (`curl -fsSL https://tailscale.com/install.sh | sh`,
+then `sudo tailscale up`) and in the Tailscale app on your phone; Jellyfin is then `http://<machine name>:8096`.
+
+Or run Tailscale as a second container next to JellyStation, so the machine itself stays untouched. Add this to the
+end of `compose.yaml` (the `tailscale:` part lines up with `jellystation:`; `configs:` starts at the left edge):
+
+```yaml
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: jellystation-tailscale
+    hostname: jellystation # its name on your Tailscale network
+    restart: unless-stopped
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_SERVE_CONFIG: /serve.json
+    configs:
+      - source: tailscale-serve
+        target: /serve.json
+    volumes:
+      - ./tailscale:/var/lib/tailscale
+
+configs:
+  tailscale-serve: # Tailscale ports 8096 (Jellyfin) and 8888 (EPGStation) lead to JellyStation
+    content: |
+      {"TCP": {"8096": {"TCPForward": "jellystation:8096"}, "8888": {"TCPForward": "jellystation:8888"}}}
+```
+
+Then `sudo docker compose up -d` and `sudo docker logs jellystation-tailscale 2>&1 | grep login.tailscale.com`:
+open that link once and log in to Tailscale to add the machine. On your phone (Tailscale app on), the Jellyfin app
+connects to `http://jellystation:8096` and EPGStation is `http://jellystation:8888`. The login is kept in
+`./tailscale`.
+
+## Tuners
+
+| Tuners | Linux driver | In `compose.yaml` (`devices:`) |
+|---|---|---|
+| PLEX PX-W3U4, PX-Q3U4, PX-W3PE4, PX-Q3PE4, PX-W3PE5, PX-Q3PE5 | [px4_drv](https://github.com/tsukumijima/px4_drv) (step 2) | `/dev/px4video*` |
+| PLEX PX-MLT5PE, PX-MLT8PE, PX-M1UR, PX-S1UR; e-Better DTV02A-1T1S-U, DTV02A-4TS-P, DTV03A-1TU | px4_drv | `/dev/pxmlt5video*`, `/dev/pxmlt8video*`, `/dev/pxm1urvideo*`, `/dev/pxs1urvideo*`, `/dev/isdb2056video*`, `/dev/isdb6014video*`, `/dev/isdbt2071video*` |
+| Earthsoft PT1, PT2, PT3 | part of Linux (`earth_pt1`, `earth_pt3`) | `/dev/dvb` |
+| Earthsoft PT1, PT2, PT3 with the older pt1_drv / pt3_drv | the out-of-tree driver | `/dev/pt1video*`, `/dev/pt3video*` |
+| PLEX PX-S1UD, PX-Q1UD and other ISDB DVB tuners | part of Linux; some USB sticks need a firmware file (PX-S1UD: `isdbt_rio.inp` in `/lib/firmware`) | `/dev/dvb` |
+
+Tested (2026-10): px4_drv 0.6.1 builds and loads on Ubuntu 24.04 (kernel 6.8) and 26.04 (7.0), Debian 13 (6.12) and
+Fedora 44 (7.2), with Secure Boot on after enrolling the key; PX-Q3U4 and PT3 (`earth_pt3`) record on all of them.
+`earth_pt3` is part of the normal kernels of these distributions. (Ubuntu's minimal cloud and VM kernel,
+`linux-image-virtual`, leaves it out: `sudo apt install linux-generic`.)
+
+JellyStation tunes with [recisdb](https://github.com/kazuki0824/recisdb-rs) (a recpt1 replacement written in Rust),
+which descrambles with the B-CAS card through pcscd in the container. The card reader is passed in as
+`/dev/bus/usb`, and the log warns when no reader is found.
+
+**First start.** When `config/mirakurun/tuners.yml` doesn't exist, JellyStation writes one with a tuner for every
+device it finds: px4_drv devices by their names (PX-W3/Q3: satellite, satellite, terrestrial, terrestrial per group
+of four), DVB adapters by what their frontend reports. A new channel list is then scanned once Mirakurun runs, and
+Mirakurun is restarted once with it at the end. (Mirakurun throws away its EPG whenever the channel list changes, so
+restarting after each part would lose the programmes of the channels found before.) A scan that finds nothing
+(aerial not connected?) runs again on the next start.
+
+**Channels.** The scan covers terrestrial channels on UHF 13-62 and, for cable TV, on cable frequencies C13-C63
+(pass-through; skip it with `JELLYSTATION_CATV=false`), plus all BS and 110° CS channels, including pay channels
+such as WOWOW, Star Channel and SKY PerfecTV! e2. Pay channels play when the B-CAS card has a contract for them.
+Cable TV that is only delivered through the cable company's set-top box (transmodulation) and SKY PerfecTV! premium
+(124/128°) need other hardware and are not supported.
+
+**Adding or changing tuners.** Pass the new devices (run `jellystation-compose` again, or add them to `devices:` in
+`compose.yaml`) and `sudo docker compose up -d`. Then `sudo docker exec jellystation jellystation-tuners` shows what
+it finds and `sudo docker exec jellystation jellystation-tuners --write` replaces `tuners.yml` (the old one is kept as
+`tuners.yml.bak`); `sudo docker compose restart` afterwards. To scan the channels again, delete
+`config/mirakurun/channels.yml` and `tuners.yml` before restarting, or use Mirakurun's scan API. The tuner command is
+`/opt/jellystation/bin/tune DEVICE <type> <channel>`; `JELLYSTATION_RECISDB_ARGS` adds recisdb options to it (e.g.
+`--lnb 15v` when the tuner powers the dish).
+
+## The compose file
+
+`jellystation-compose` (step 3) writes this for you. To write it yourself, keep the `devices:` lines of the tuners
+you have (Docker refuses to start when a listed device doesn't exist):
 
 ```yaml
 services:
@@ -38,103 +310,27 @@ services:
     cap_add:
       - SYS_NICE # Mirakurun raises its own priority
     environment:
-      JELLYSTATION_JELLYFIN_PASSWORD: change-me
-    devices: # your tuners (see Tuners), and the B-CAS card reader
-      - /dev/px4video0:/dev/px4video0 # e.g. PLEX PX-W3U4 (px4_drv)
+      TZ: Asia/Tokyo
+      JELLYSTATION_JELLYFIN_PASSWORD: change-me # Jellyfin login admin / this, set on the first start
+    devices:
+      - /dev/px4video0:/dev/px4video0 # PLEX PX-W3U4 / PX-Q3U4 / ... (px4_drv): one line per /dev/px4video*
       - /dev/px4video1:/dev/px4video1
       - /dev/px4video2:/dev/px4video2
       - /dev/px4video3:/dev/px4video3
       # - /dev/dvb:/dev/dvb       # PT1/PT2/PT3, PX-S1UD and other DVB tuners
-      - /dev/bus/usb:/dev/bus/usb # card reader (pcscd)
-      # - /dev/dri:/dev/dri       # Intel/AMD hardware transcoding for Jellyfin
+      - /dev/bus/usb:/dev/bus/usb # B-CAS card reader
+      # - /dev/dri:/dev/dri       # Intel/AMD GPU for Jellyfin hardware transcoding
     ports:
-      - "8096:8096"
-      - "8888:8888"
-      - "40772:40772"
+      - "8096:8096"   # Jellyfin
+      - "8888:8888"   # EPGStation
+      - "40772:40772" # Mirakurun
     volumes:
       - ./config:/config
       - ./cache:/cache
-      - /srv/tv:/media # recordings and the Jellyfin library: keep them on one filesystem (hardlinks)
+      - ./media:/media # recordings and the Jellyfin library: one filesystem (hardlinks)
 ```
 
-JellyStation runs on Linux (x86-64) with [Docker](https://docs.docker.com/engine/install/). Tuners and the card
-reader must be visible to the container, which Docker Desktop on Windows and macOS can't do; there it only works with
-tuners on another machine (`JELLYSTATION_REMOTE_MIRAKURUN`, see [Settings](#settings)).
-
-1. Install the tuner driver on the host if your tuner needs one (see [Tuners](#tuners)), plug in the card reader
-   with the B-CAS card, save the file above as `compose.yaml` and run `docker compose up -d`.
-2. On the first start JellyStation writes `config/mirakurun/tuners.yml` for the tuners it finds and scans the
-   channels: terrestrial, BS, CS and cable (CATV), about an hour. Each part shows up in Mirakurun when it is done;
-   Mirakurun's web UI (`http://<host>:40772`) shows the scan's progress and `docker logs jellystation` what was found.
-   Mirakurun logs many `respawning because request has not closed` warnings during the scan: those are frequencies
-   without a signal, which is normal (the whole cable range when you don't have cable TV).
-3. Open EPGStation at `http://<host>:8888` and add reservations or rules.
-4. Open Jellyfin at `http://<host>:8096` and log in as `admin` with `JELLYSTATION_JELLYFIN_PASSWORD`. The libraries
-   and Live TV are already set up. Recordings can also be scheduled in Jellyfin at `http://<host>:8096/EpgStation/Web/`
-   (administrators also find it under Dashboard → Plugins; add it to the home screen or bookmark it for other users).
-
-## NAS and other systems
-
-- **TrueNAS SCALE / Community Edition** (tested with 25.10): create datasets for the config, cache and media, then
-  Apps → Discover Apps → ⋮ → Install via YAML and paste the compose file with those paths (`/mnt/<pool>/...`).
-  TrueNAS can't install extra kernel drivers, so only tuners whose driver is part of Linux work there: PT1/PT2/PT3
-  and PX-S1UD (tested with a PT3). For px4_drv tuners (PX-W3U4, PX-Q3U4, ...), see the tuner server below.
-- **OpenMediaVault** (tested with 8): it is Debian underneath, so install the tuner driver as in [Tuners](#tuners).
-  Then, with the Compose plugin from omv-extras, add a file with the compose above; `CHANGE_TO_COMPOSE_DATA_PATH`
-  in the volumes points at the plugin's data folder.
-- **Raspberry Pi, other ARM boards, Windows and macOS**: the image is for x86-64 Linux. Use the other machine as a
-  **tuner server** instead: run Mirakurun there with the tuners and the card reader, and start JellyStation on an
-  x86-64 Linux machine or NAS with `JELLYSTATION_REMOTE_MIRAKURUN=<tuner server>:40772`. (A Pi could not convert TV
-  for browsers in Jellyfin smoothly anyway.)
-
-## Tuners
-
-Tuner drivers are kernel modules, so they are installed on the **host**, not in the container. JellyStation tunes
-with [recisdb](https://github.com/kazuki0824/recisdb-rs) (a recpt1 replacement written in Rust), which handles both
-kinds of Linux tuner device:
-
-| Tuners | Host driver | Pass to the container |
-|---|---|---|
-| PLEX PX-W3U4, PX-Q3U4, PX-W3PE4, PX-Q3PE4, PX-W3PE5, PX-Q3PE5 | [px4_drv](https://github.com/tsukumijima/px4_drv): `sudo apt install ./px4-drv-dkms_*_all.deb` | `/dev/px4video*` |
-| PLEX PX-MLT5PE, PX-MLT8PE, PX-M1UR, PX-S1UR; e-Better DTV02A-1T1S-U, DTV02A-4TS-P, DTV03A-1TU | px4_drv | `/dev/pxmlt5video*`, `/dev/pxmlt8video*`, `/dev/pxm1urvideo*`, `/dev/pxs1urvideo*`, `/dev/isdb2056video*`, `/dev/isdb6014video*`, `/dev/isdbt2071video*` |
-| Earthsoft PT1, PT2, PT3 | built into Linux (`earth_pt1`, `earth_pt3`) | `/dev/dvb` |
-| Earthsoft PT1, PT2, PT3 with the older pt1_drv / pt3_drv | the out-of-tree driver | `/dev/pt1video*`, `/dev/pt3video*` |
-| PLEX PX-S1UD, PX-Q1UD and other ISDB DVB tuners | built into Linux; some USB sticks need a firmware file (PX-S1UD: `isdbt_rio.inp` in `/lib/firmware`) | `/dev/dvb` |
-
-`ls /dev/px* /dev/pt* /dev/isdb* /dev/dvb` on the host shows what the driver created.
-
-px4_drv (and other out-of-tree drivers) are built by DKMS, which needs the kernel headers: install them before the
-driver (`sudo apt install linux-headers-amd64` on Debian, `linux-headers-generic` on Ubuntu), or run
-`sudo dkms autoinstall` afterwards. `sudo dkms status` should say `installed`, not just `added`.
-
-With **Secure Boot** on, the kernel refuses the self-built module (`modprobe: ERROR: could not insert 'px4_drv': Key
-was rejected by service`). Enroll the DKMS signing key once: `sudo mokutil --import /var/lib/dkms/mok.pub` (choose a
-one-time password), reboot, and on the blue "Shim UEFI key management" screen press a key at once (it waits only a few
-seconds), then Enroll MOK → Continue → Yes → the password → Reboot. Or turn Secure Boot off in the firmware settings.
-Drivers that are part of Linux (PT1/PT2/PT3, PX-S1UD) are signed and need neither.
-
-**B-CAS card.** Almost all channels, including NHK, are scrambled, so you need a B-CAS card and a smart card reader
-(a USB CCID reader such as the NTT Communications SCR3310 or ACS ACR39). The card slot built into some PLEX
-tuners (PX-W3U4, PX-Q3U4 and others) is not a standard reader and can't be used on Linux. Pass
-`/dev/bus/usb`; pcscd in the container finds the reader and recisdb descrambles with it. The log warns when no
-reader is found.
-
-**First start.** When `config/mirakurun/tuners.yml` doesn't exist, JellyStation writes one with a tuner for every
-device it finds: px4_drv devices by their names (PX-W3/Q3: satellite, satellite, terrestrial, terrestrial per group
-of four), DVB adapters by what their frontend reports. A new channel list is then scanned once Mirakurun runs; a scan
-that finds nothing (aerial not connected?) runs again on the next start.
-
-**Channels.** The scan covers terrestrial channels on UHF 13-62 and, for cable TV, on cable frequencies C13-C63
-(pass-through; skip it with `JELLYSTATION_CATV=false`), plus all BS and 110° CS channels, including pay channels
-such as WOWOW, Star Channel and SKY PerfecTV! e2. Pay channels play when the B-CAS card has a contract for them.
-Cable TV that is only delivered through the cable company's set-top box (transmodulation) and SKY PerfecTV! premium
-(124/128°) need other hardware and are not supported.
-
-**Adding or changing tuners.** Pass the new devices, then run `docker exec jellystation jellystation-tuners` to see
-what it finds and `docker exec jellystation jellystation-tuners --write` to replace `tuners.yml` (the old one is kept
-as `tuners.yml.bak`), and restart. To scan again, delete `config/mirakurun/channels.yml` and `tuners.yml` before
-restarting, or use Mirakurun's scan API. The tuner command is `/opt/jellystation/bin/tune DEVICE <type> <channel>`;
-`JELLYSTATION_RECISDB_ARGS` adds recisdb options to it (e.g. `--lnb 15v` when the tuner powers the dish).
+On Fedora and other SELinux systems with Fedora's docker package, add `:z` to each volume (`./config:/config:z`).
 
 ## Layout
 
